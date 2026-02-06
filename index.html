@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -20,7 +21,7 @@
             padding: 0;
             background: var(--bg);
             color: var(--fg);
-            overflow: hidden; /* We handle scrolling inside components */
+            overflow: hidden;
         }
         body {
             font-family: 'Inter', sans-serif;
@@ -29,7 +30,6 @@
         }
         .mono { font-family: 'Space Mono', monospace; }
         
-        /* Brutalist UI Elements */
         .sharp-border {
             border: 1px solid var(--accent) !important;
             border-radius: 0 !important;
@@ -44,12 +44,10 @@
             color: var(--bg);
         }
         
-        /* Input and Table Border Overrides */
         input, table, th, td, div[class*="border-"] {
             border-color: #a5a5a5 !important;
         }
         
-        /* Utilities */
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         
@@ -69,17 +67,20 @@
 <script type="importmap">
 {
   "imports": {
+    "react": "https://esm.sh/react@19.0.0",
+    "react-dom": "https://esm.sh/react-dom@19.0.0",
+    "react-dom/client": "https://esm.sh/react-dom@19.0.0/client",
+    "lucide-react": "https://esm.sh/lucide-react@0.463.0",
+    "nanoid": "https://esm.sh/nanoid@5.1.0",
+    "qrcode": "https://esm.sh/qrcode@1.5.4",
     "react-dom/": "https://esm.sh/react-dom@^19.2.4/",
-    "react/": "https://esm.sh/react@^19.2.4/",
-    "react": "https://esm.sh/react@^19.2.4",
-    "lucide-react": "https://esm.sh/lucide-react@^0.563.0",
-    "nanoid": "https://esm.sh/nanoid@^5.1.6",
-    "qrcode": "https://esm.sh/qrcode@^1.5.3"
+    "react/": "https://esm.sh/react@^19.2.4/"
   }
 }
 </script>
 </head>
 <body>
     <div id="root"></div>
+    <script type="module" src="index.tsx"></script>
 </body>
 </html>
