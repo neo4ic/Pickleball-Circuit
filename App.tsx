@@ -53,7 +53,7 @@ const Button: React.FC<{
 
 const Modal: React.FC<{ title: string; subtitle?: string; onClose: () => void; children: React.ReactNode }> = ({ title, subtitle, onClose, children }) => (
   <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-black/95 animate-in fade-in duration-200">
-    <div className="border border-[#a5a5a5] w-full max-w-sm p-6 flex flex-col items-center text-center bg-black shadow-[0_0_50px_rgba(0,0,0,1)]">
+    <div className="border border-[#a5a5a5] w-full max-sm p-6 flex flex-col items-center text-center bg-black shadow-[0_0_50px_rgba(0,0,0,1)]">
       <div className="w-full flex justify-end mb-4">
         <button onClick={onClose} className="p-2 text-white/50 hover:text-white transition-colors"><X size={24} /></button>
       </div>
@@ -424,7 +424,6 @@ const Dashboard: React.FC<{
 
   const standings = useMemo(() => computeStandings(event), [event]);
   
-  // Combine RR rounds and Playoff rounds into one list for navigation
   const allRounds = useMemo(() => {
     return [...event.rounds, ...(event.playoffRounds || [])];
   }, [event.rounds, event.playoffRounds]);
@@ -438,7 +437,6 @@ const Dashboard: React.FC<{
   // Auto-generate Finals when Semi-Finals are done
   useEffect(() => {
     if (isHost && event.playoffRounds?.length === 1 && event.playoffRounds[0].status === RoundStatus.SUBMITTED) {
-      // Semi-Finals done, create Finals
       const sfMatches = event.playoffRounds[0].matches;
       const winners = sfMatches.map(m => m.winnerId).filter(Boolean) as string[];
       
@@ -462,7 +460,7 @@ const Dashboard: React.FC<{
         onUpdate({ ...event, playoffRounds: [...event.playoffRounds, finalRound] });
       }
     }
-  }, [event.playoffRounds]);
+  }, [event.playoffRounds, isHost, onUpdate, event]);
 
   useEffect(() => {
     const interval = setInterval(() => setCurrentTime(Date.now()), 1000);
@@ -569,6 +567,20 @@ const Dashboard: React.FC<{
     onUpdate(nextEvent);
   };
 
+  // Helper to pause the timer if it's currently running when an action is taken
+  const pauseTimerIfRunning = (round: Round): Round => {
+    if (round.status === RoundStatus.IN_PROGRESS && round.startTimestamp) {
+        const elapsedSinceStart = Math.floor((Date.now() - round.startTimestamp) / 1000);
+        return {
+            ...round,
+            status: RoundStatus.STOPPED,
+            elapsedSeconds: round.elapsedSeconds + elapsedSinceStart,
+            startTimestamp: undefined
+        };
+    }
+    return round;
+  };
+
   const handleWinnerSelect = (matchId: string, teamId: string) => {
     if (!isHost || currentRound.status === RoundStatus.SUBMITTED) return;
     const nextEvent = { ...event };
@@ -580,10 +592,12 @@ const Dashboard: React.FC<{
     if (isPlayoffRound) {
       const pIdx = activeRoundIdx - event.rounds.length;
       const nextPlayoffs = [...(event.playoffRounds || [])];
+      nextPlayoffs[pIdx] = pauseTimerIfRunning(nextPlayoffs[pIdx]);
       nextPlayoffs[pIdx].matches = updateMatches(nextPlayoffs[pIdx].matches);
       nextEvent.playoffRounds = nextPlayoffs;
     } else {
       const nextRounds = [...event.rounds];
+      nextRounds[activeRoundIdx] = pauseTimerIfRunning(nextRounds[activeRoundIdx]);
       nextRounds[activeRoundIdx].matches = updateMatches(nextRounds[activeRoundIdx].matches);
       nextEvent.rounds = nextRounds;
     }
@@ -599,10 +613,6 @@ const Dashboard: React.FC<{
     const updateMatches = (matches: Match[]) => {
       return matches.map(m => {
         if (m.id !== matchId) return m;
-        if (!m.winnerId) {
-          alert("SELECT WINNER BEFORE LOGGING SCORE.");
-          return m;
-        }
         const updated = { ...m };
         if (team === 'A') updated.scoreA = score;
         else updated.scoreB = score;
@@ -615,10 +625,12 @@ const Dashboard: React.FC<{
     if (isPlayoffRound) {
       const pIdx = activeRoundIdx - event.rounds.length;
       const nextPlayoffs = [...(event.playoffRounds || [])];
+      nextPlayoffs[pIdx] = pauseTimerIfRunning(nextPlayoffs[pIdx]);
       nextPlayoffs[pIdx].matches = updateMatches(nextPlayoffs[pIdx].matches);
       nextEvent.playoffRounds = nextPlayoffs;
     } else {
       const nextRounds = [...event.rounds];
+      nextRounds[activeRoundIdx] = pauseTimerIfRunning(nextRounds[activeRoundIdx]);
       nextRounds[activeRoundIdx].matches = updateMatches(nextRounds[activeRoundIdx].matches);
       nextEvent.rounds = nextRounds;
     }
@@ -700,7 +712,7 @@ const Dashboard: React.FC<{
       return event.teams.find(t => t.id === finalMatch.winnerId);
     }
     return null;
-  }, [event.playoffRounds]);
+  }, [event.playoffRounds, event.teams]);
 
   if (showStandings) {
     return (
@@ -870,7 +882,7 @@ const Dashboard: React.FC<{
                     {match.winnerId === match.teamAId ? 'WINNER ✓' : 'SELECT WINNER'}
                   </button>
                   <div className="w-12 text-center text-[7px] font-black text-white/10 uppercase tracking-tighter">
-                    {isPlayoffRound ? 'FINAL' : `CRT ${match.courtNumber}`}
+                    {isPlayoffRound ? 'PLAYOFF' : `CRT ${match.courtNumber}`}
                   </div>
                   <button 
                     onClick={() => handleWinnerSelect(match.id, match.teamBId)}
