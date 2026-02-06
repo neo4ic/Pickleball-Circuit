@@ -1,4 +1,3 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -17,15 +16,14 @@
         }
         html, body {
             height: 100%;
-            overflow: hidden; /* Prevent browser-level scrolling */
-            position: fixed;
-            width: 100%;
+            margin: 0;
+            padding: 0;
+            background: var(--bg);
+            color: var(--fg);
+            overflow: hidden; /* We handle scrolling inside components */
         }
         body {
             font-family: 'Inter', sans-serif;
-            background: var(--bg);
-            color: var(--fg);
-            margin: 0;
             -webkit-font-smoothing: antialiased;
             touch-action: manipulation;
         }
@@ -63,9 +61,9 @@
             to { opacity: 1; transform: translateY(0); }
         }
 
-        /* Prevent unwanted highlighting on mobile */
         * {
             -webkit-tap-highlight-color: transparent;
+            box-sizing: border-box;
         }
     </style>
 <script type="importmap">

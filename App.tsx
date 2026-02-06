@@ -21,7 +21,7 @@ import {
 } from 'lucide-react';
 import { nanoid } from 'nanoid';
 import QRCode from 'qrcode';
-import { Event, Team, Round, Match, RoundStatus, MatchStatus, StandingRow } from './types';
+import { Event, Team, Round, Match, RoundStatus, MatchStatus } from './types';
 import { generateSchedule } from './utils/scheduler';
 import { computeStandings } from './utils/standings';
 import { saveEvent, getEvent, setHostToken, getHostToken, getStoredEvents, generateEventShareUrl, deleteEvent } from './utils/persistence';
@@ -311,13 +311,6 @@ const CreateView: React.FC<{ onCreated: (ev: Event) => void; onBack: () => void 
               </div>
             </div>
           </div>
-          {projection.wavesPerRound > 1 && (
-            <div className="pt-2 border-t border-[#a5a5a5] mt-2">
-              <p className="text-[8px] text-orange-400 font-bold uppercase tracking-widest leading-tight">
-                Warning: Court shortage will trigger {projection.wavesPerRound} waves per round.
-              </p>
-            </div>
-          )}
         </div>
 
         <div>
@@ -641,7 +634,7 @@ const Dashboard: React.FC<{
   const allRRSubmitted = event.rounds.every(r => r.status === RoundStatus.SUBMITTED);
   const playoffWinner = useMemo(() => {
     const finalRound = event.playoffRounds?.find(r => r.roundNumber === 'FINALS' && r.status === RoundStatus.SUBMITTED);
-    if (finalRound) {
+    if (finalRound && finalRound.matches.length > 0) {
       const finalMatch = finalRound.matches[0];
       return event.teams.find(t => t.id === finalMatch.winnerId);
     }
