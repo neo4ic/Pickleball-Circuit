@@ -27,7 +27,11 @@ export function getEvent(id: string): Event | null {
 }
 
 export function generateEventShareUrl(event: Event): string {
-  return `${window.location.origin}${window.location.pathname}#/event/${event.id}`;
+  // Use the current URL minus existing hashes to ensure it works on any domain
+  const baseUrl = window.location.href.split('#')[0];
+  // Ensure we don't end up with double slashes if baseUrl has one
+  const cleanBase = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
+  return `${cleanBase}/#/event/${event.id}`;
 }
 
 export function setHostToken(eventId: string, token: string) {

@@ -53,7 +53,7 @@ const Button: React.FC<{
 
 const Modal: React.FC<{ title: string; subtitle?: string; onClose: () => void; children: React.ReactNode }> = ({ title, subtitle, onClose, children }) => (
   <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-black/95 animate-in fade-in duration-200">
-    <div className="border border-[#a5a5a5] w-full max-sm p-6 flex flex-col items-center text-center bg-black shadow-[0_0_50px_rgba(0,0,0,1)]">
+    <div className="border border-[#a5a5a5] w-full max-w-sm p-6 flex flex-col items-center text-center bg-black shadow-[0_0_50px_rgba(0,0,0,1)]">
       <div className="w-full flex justify-end mb-4">
         <button onClick={onClose} className="p-2 text-white/50 hover:text-white transition-colors"><X size={24} /></button>
       </div>
@@ -153,23 +153,25 @@ const LandingView: React.FC<{ onCreate: () => void; onResume: (id: string) => vo
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen px-6 text-center page-transition">
+    <div className="flex flex-col h-[100dvh] w-full px-6 py-12 text-center page-transition overflow-hidden justify-between">
       {showDonate && <DonateModal onClose={() => setShowDonate(false)} />}
       
-      <div className="mb-12">
-        <h1 className="text-[12vw] sm:text-[80px] font-black leading-none mb-4 italic tracking-tighter">PICKLE.<br/>CIRCUIT</h1>
-        <p className="text-[10px] text-white/40 font-bold uppercase tracking-[0.4em] max-w-xs mx-auto">Run Pickleball events for free.</p>
-      </div>
+      <div className="flex-1 flex flex-col justify-center gap-12">
+        <div>
+          <h1 className="text-[12vw] sm:text-[80px] font-black leading-none mb-4 italic tracking-tighter">PICKLE.<br/>CIRCUIT</h1>
+          <p className="text-[10px] text-white/40 font-bold uppercase tracking-[0.4em] max-w-xs mx-auto">Run Pickleball events for free.</p>
+        </div>
 
-      <div className="w-full max-w-xs space-y-3">
-        <Button onClick={onCreate} className="w-full py-4">Initialize Event</Button>
-        <Button onClick={handleShareApp} variant="outline" className="w-full">Share App</Button>
+        <div className="w-full max-w-xs mx-auto space-y-3">
+          <Button onClick={onCreate} className="w-full py-4">Initialize Event</Button>
+          <Button onClick={handleShareApp} variant="outline" className="w-full">Share App</Button>
+        </div>
       </div>
 
       {history.length > 0 && (
-        <div className="mt-12 w-full max-w-xs text-left">
+        <div className="w-full max-w-xs mx-auto text-left mb-8">
           <h2 className="text-white/20 font-black mb-4 uppercase tracking-[0.4em] text-[9px] border-b border-[#a5a5a5] pb-2">Active Nodes</h2>
-          <div className="space-y-3">
+          <div className="space-y-3 overflow-y-auto max-h-[20vh] no-scrollbar">
             {history.map(ev => (
               <button 
                 key={ev.id} 
@@ -187,7 +189,7 @@ const LandingView: React.FC<{ onCreate: () => void; onResume: (id: string) => vo
         </div>
       )}
 
-      <div className="absolute bottom-12 left-0 right-0 flex flex-col items-center gap-4 px-6">
+      <div className="w-full flex flex-col items-center gap-4">
         <p className="text-[8px] text-[#a5a5a5] uppercase tracking-widest font-bold">
           Donations will buy pickleball equipment for lower income families
         </p>
@@ -247,13 +249,13 @@ const CreateView: React.FC<{ onCreated: (ev: Event) => void; onBack: () => void 
   };
 
   return (
-    <div className="max-w-md mx-auto p-6 page-transition">
+    <div className="max-w-md mx-auto p-6 page-transition h-[100dvh] overflow-y-auto no-scrollbar">
       <header className="flex items-center gap-4 mb-8 mt-6">
         <button onClick={onBack} className="p-2 border border-[#a5a5a5] hover:bg-white/5 transition-colors"><ChevronLeft size={18} /></button>
         <h1 className="text-sm font-black uppercase tracking-widest italic">Create your game</h1>
       </header>
 
-      <div className="space-y-8">
+      <div className="space-y-8 pb-12">
         <div className="space-y-3">
           <label className="block text-[9px] font-black text-white/30 uppercase tracking-[0.4em]">Designation</label>
           <input 
@@ -312,7 +314,7 @@ const CreateView: React.FC<{ onCreated: (ev: Event) => void; onBack: () => void 
           {projection.wavesPerRound > 1 && (
             <div className="pt-2 border-t border-[#a5a5a5] mt-2">
               <p className="text-[8px] text-orange-400 font-bold uppercase tracking-widest leading-tight">
-                Warning: Court shortage will trigger {projection.wavesPerRound} waves per round. Play time will increase significantly.
+                Warning: Court shortage will trigger {projection.wavesPerRound} waves per round.
               </p>
             </div>
           )}
@@ -360,8 +362,8 @@ const TeamSetupView: React.FC<{ event: Event; onConfirm: (teams: Team[]) => void
   const isReady = teams.every(t => t.player1 && t.player2);
 
   return (
-    <div className="max-w-md mx-auto p-6 page-transition">
-      <header className="mb-10 mt-6 flex items-center justify-between">
+    <div className="max-w-md mx-auto p-6 page-transition h-[100dvh] flex flex-col">
+      <header className="mb-10 mt-6 flex items-center justify-between shrink-0">
         <div>
           <h1 className="text-2xl font-black uppercase italic tracking-tighter">ADD PLAYER NAMES</h1>
           <p className="text-white/30 text-[8px] font-bold uppercase tracking-[0.3em] mt-1">ID Required for {event.numberOfTeams} pairs</p>
@@ -369,7 +371,7 @@ const TeamSetupView: React.FC<{ event: Event; onConfirm: (teams: Team[]) => void
         <button onClick={onBack} className="p-2 border border-[#a5a5a5] hover:bg-white/5 transition-colors"><ChevronLeft size={18} /></button>
       </header>
 
-      <div className="space-y-8 mb-40">
+      <div className="flex-1 overflow-y-auto space-y-8 mb-4 no-scrollbar">
         {teams.map((team, i) => (
           <div key={team.id} className="border-t border-[#a5a5a5] pt-6">
             <div className="flex items-center justify-between mb-4">
@@ -399,7 +401,7 @@ const TeamSetupView: React.FC<{ event: Event; onConfirm: (teams: Team[]) => void
         ))}
       </div>
 
-      <div className="fixed bottom-0 left-0 right-0 p-6 bg-black border-t border-[#a5a5a5] z-50 pb-safe">
+      <div className="p-6 shrink-0 bg-black border-t border-[#a5a5a5] pb-safe">
         <Button onClick={() => onConfirm(teams)} className="w-full py-5" disabled={!isReady}>
           Begin Tournament
         </Button>
@@ -430,37 +432,6 @@ const Dashboard: React.FC<{
 
   const currentRound = allRounds[activeRoundIdx];
   const isPlayoffRound = activeRoundIdx >= event.rounds.length;
-
-  const playingTeamIds = new Set(currentRound?.matches.flatMap(m => [m.teamAId, m.teamBId]) || []);
-  const byeTeam = event.teams.find(t => !playingTeamIds.has(t.id));
-
-  // Auto-generate Finals when Semi-Finals are done
-  useEffect(() => {
-    if (isHost && event.playoffRounds?.length === 1 && event.playoffRounds[0].status === RoundStatus.SUBMITTED) {
-      const sfMatches = event.playoffRounds[0].matches;
-      const winners = sfMatches.map(m => m.winnerId).filter(Boolean) as string[];
-      
-      if (winners.length === 2) {
-        const finalRound: Round = {
-          id: 'round-final',
-          roundNumber: 'FINALS',
-          status: RoundStatus.NOT_STARTED,
-          elapsedSeconds: 0,
-          matches: [{
-            id: 'match-final',
-            courtNumber: 1,
-            teamAId: winners[0],
-            teamBId: winners[1],
-            scoreA: null,
-            scoreB: null,
-            status: MatchStatus.PENDING,
-            isPlayoff: true
-          }]
-        };
-        onUpdate({ ...event, playoffRounds: [...event.playoffRounds, finalRound] });
-      }
-    }
-  }, [event.playoffRounds, isHost, onUpdate, event]);
 
   useEffect(() => {
     const interval = setInterval(() => setCurrentTime(Date.now()), 1000);
@@ -567,7 +538,6 @@ const Dashboard: React.FC<{
     onUpdate(nextEvent);
   };
 
-  // Helper to pause the timer if it's currently running when an action is taken
   const pauseTimerIfRunning = (round: Round): Round => {
     if (round.status === RoundStatus.IN_PROGRESS && round.startTimestamp) {
         const elapsedSinceStart = Math.floor((Date.now() - round.startTimestamp) / 1000);
@@ -584,10 +554,7 @@ const Dashboard: React.FC<{
   const handleWinnerSelect = (matchId: string, teamId: string) => {
     if (!isHost || currentRound.status === RoundStatus.SUBMITTED) return;
     const nextEvent = { ...event };
-    
-    const updateMatches = (matches: Match[]) => {
-      return matches.map(m => m.id === matchId ? { ...m, winnerId: teamId } : m);
-    };
+    const updateMatches = (matches: Match[]) => matches.map(m => m.id === matchId ? { ...m, winnerId: teamId } : m);
 
     if (isPlayoffRound) {
       const pIdx = activeRoundIdx - event.rounds.length;
@@ -610,17 +577,16 @@ const Dashboard: React.FC<{
     const score = cleanVal === '' ? null : parseInt(cleanVal);
     
     const nextEvent = { ...event };
-    const updateMatches = (matches: Match[]) => {
-      return matches.map(m => {
+    const updateMatches = (matches: Match[]) => matches.map(m => {
         if (m.id !== matchId) return m;
+        if (!m.winnerId) return m;
         const updated = { ...m };
         if (team === 'A') updated.scoreA = score;
         else updated.scoreB = score;
         updated.status = (updated.scoreA !== null && updated.scoreB !== null) ? MatchStatus.COMPLETE : MatchStatus.PENDING;
         updated.lastEditedAt = Date.now();
         return updated;
-      });
-    };
+    });
 
     if (isPlayoffRound) {
       const pIdx = activeRoundIdx - event.rounds.length;
@@ -656,10 +622,7 @@ const Dashboard: React.FC<{
   const handleInitializePlayoffs = () => {
     if (!isHost) return;
     const top4 = standings.slice(0, 4);
-    if (top4.length < 4) {
-      alert("Requires at least 4 teams to initialize Playoffs.");
-      return;
-    }
+    if (top4.length < 4) return;
 
     const semiFinalRound: Round = {
       id: 'round-sf',
@@ -667,41 +630,12 @@ const Dashboard: React.FC<{
       status: RoundStatus.NOT_STARTED,
       elapsedSeconds: 0,
       matches: [
-        {
-          id: 'match-sf-1',
-          courtNumber: 1,
-          teamAId: top4[0].teamId, // #1
-          teamBId: top4[3].teamId, // #4
-          scoreA: null,
-          scoreB: null,
-          status: MatchStatus.PENDING,
-          isPlayoff: true
-        },
-        {
-          id: 'match-sf-2',
-          courtNumber: 2,
-          teamAId: top4[1].teamId, // #2
-          teamBId: top4[2].teamId, // #3
-          scoreA: null,
-          scoreB: null,
-          status: MatchStatus.PENDING,
-          isPlayoff: true
-        }
+        { id: 'match-sf-1', courtNumber: 1, teamAId: top4[0].teamId, teamBId: top4[3].teamId, scoreA: null, scoreB: null, status: MatchStatus.PENDING, isPlayoff: true },
+        { id: 'match-sf-2', courtNumber: 2, teamAId: top4[1].teamId, teamBId: top4[2].teamId, scoreA: null, scoreB: null, status: MatchStatus.PENDING, isPlayoff: true }
       ]
     };
-
     onUpdate({ ...event, playoffRounds: [semiFinalRound] });
-    setActiveRoundIdx(event.rounds.length); // Switch to first playoff round
-  };
-
-  const shareResults = () => {
-    if (navigator.share) {
-      navigator.share({
-        title: `${event.name} Node`,
-        text: `Live status update for ${event.name}`,
-        url: window.location.href
-      });
-    }
+    setActiveRoundIdx(event.rounds.length);
   };
 
   const allRRSubmitted = event.rounds.every(r => r.status === RoundStatus.SUBMITTED);
@@ -716,255 +650,117 @@ const Dashboard: React.FC<{
 
   if (showStandings) {
     return (
-      <div className="max-w-md mx-auto p-6 min-h-screen page-transition bg-black">
-        <header className="flex items-center justify-between mb-8 mt-4">
+      <div className="max-w-md mx-auto p-6 min-h-[100dvh] flex flex-col bg-black overflow-hidden">
+        <header className="flex items-center justify-between mb-8 mt-4 shrink-0">
           <h1 className="text-2xl font-black italic tracking-tighter uppercase">RANKINGS</h1>
           <div className="flex gap-2">
-            <button onClick={shareResults} className="p-2 border border-[#a5a5a5] active:bg-white active:text-black transition-all"><Share2 size={18} /></button>
             <button onClick={() => setShowStandings(false)} className="p-2 border border-[#a5a5a5] active:bg-white active:text-black transition-all"><X size={20} /></button>
           </div>
         </header>
 
-        <div className="flex border border-[#a5a5a5] mb-8">
-          <button 
-            onClick={() => setStandingsTab('RR')}
-            className={`flex-1 py-3 text-[9px] font-black tracking-widest uppercase ${standingsTab === 'RR' ? 'bg-white text-black' : 'text-white/40'}`}
-          >
-            ROUND ROBIN
-          </button>
-          <button 
-            onClick={() => setStandingsTab('PLAYOFFS')}
-            className={`flex-1 py-3 text-[9px] font-black tracking-widest uppercase ${standingsTab === 'PLAYOFFS' ? 'bg-white text-black' : 'text-white/40'}`}
-          >
-            PLAYOFFS
-          </button>
+        <div className="flex border border-[#a5a5a5] mb-8 shrink-0">
+          <button onClick={() => setStandingsTab('RR')} className={`flex-1 py-3 text-[9px] font-black tracking-widest uppercase ${standingsTab === 'RR' ? 'bg-white text-black' : 'text-white/40'}`}>ROUND ROBIN</button>
+          <button onClick={() => setStandingsTab('PLAYOFFS')} className={`flex-1 py-3 text-[9px] font-black tracking-widest uppercase ${standingsTab === 'PLAYOFFS' ? 'bg-white text-black' : 'text-white/40'}`}>PLAYOFFS</button>
         </div>
 
-        {standingsTab === 'RR' ? (
-          <div className="border border-[#a5a5a5]">
-            <table className="w-full text-left">
-              <thead>
-                <tr className="bg-white/5 text-white/30 text-[8px] font-black uppercase tracking-[0.3em]">
-                  <th className="px-4 py-3">RK</th>
-                  <th className="px-4 py-3">SQUAD</th>
-                  <th className="px-4 py-3 text-center">W/L</th>
-                  <th className="px-4 py-3 text-center">PTS</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#a5a5a5]">
-                {standings.map(row => {
-                  const teamData = event.teams.find(t => t.id === row.teamId);
-                  return (
+        <div className="flex-1 overflow-y-auto no-scrollbar">
+          {standingsTab === 'RR' ? (
+            <div className="border border-[#a5a5a5]">
+              <table className="w-full text-left">
+                <thead>
+                  <tr className="bg-white/5 text-white/30 text-[8px] font-black uppercase tracking-[0.3em]"><th className="px-4 py-3">RK</th><th className="px-4 py-3">SQUAD</th><th className="px-4 py-3 text-center">PTS</th></tr>
+                </thead>
+                <tbody className="divide-y divide-[#a5a5a5]">
+                  {standings.map(row => (
                     <tr key={row.teamId}>
                       <td className="px-4 py-6 font-black text-xs italic">#{row.rank}</td>
-                      <td className="px-4 py-6">
-                        <div className="font-bold text-[8px] uppercase tracking-widest leading-relaxed">
-                          {teamData?.player1} & {teamData?.player2}
-                        </div>
-                      </td>
-                      <td className="px-4 py-6 text-center text-[8px] mono text-white/50">{row.wins}-{row.losses}</td>
+                      <td className="px-4 py-6"><div className="font-bold text-[8px] uppercase tracking-widest leading-relaxed">{event.teams.find(t => t.id === row.teamId)?.player1} & {event.teams.find(t => t.id === row.teamId)?.player2}</div></td>
                       <td className="px-4 py-6 text-center font-black text-xs tabular-nums">{row.pointsFor}</td>
                     </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <div className="flex flex-col items-center">
-            {playoffWinner ? (
-              <div className="w-full border border-[#a5a5a5] p-8 text-center bg-white/[0.03] space-y-6">
-                <Medal size={48} className="mx-auto text-yellow-500" />
-                <div>
-                  <h3 className="text-[10px] font-black text-[#a5a5a5] uppercase tracking-[0.4em] mb-2">GOLD MEDALIST</h3>
-                  <p className="text-2xl font-black italic tracking-tighter uppercase">{playoffWinner.player1} & {playoffWinner.player2}</p>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center">
+              {playoffWinner ? (
+                <div className="w-full border border-[#a5a5a5] p-8 text-center bg-white/[0.03] space-y-6">
+                  <Medal size={48} className="mx-auto text-yellow-500" />
+                  <div><h3 className="text-[10px] font-black text-[#a5a5a5] uppercase tracking-[0.4em] mb-2">GOLD MEDALIST</h3><p className="text-2xl font-black italic tracking-tighter uppercase">{playoffWinner.player1} & {playoffWinner.player2}</p></div>
                 </div>
-                <div className="text-[8px] font-bold text-white/20 uppercase tracking-[0.2em]">Tournament Circuit Complete</div>
-              </div>
-            ) : (
-              <div className="text-center p-12 text-white/20 text-[9px] uppercase tracking-widest leading-relaxed">
-                Playoff sequence pending completion of Round Robin.
-              </div>
-            )}
-          </div>
-        )}
+              ) : (
+                <div className="text-center p-12 text-white/20 text-[9px] uppercase tracking-widest">Pending Completion</div>
+              )}
+            </div>
+          )}
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col h-screen overflow-hidden page-transition bg-black">
+    <div className="flex flex-col h-[100dvh] w-full overflow-hidden page-transition bg-black">
       {showQR && <QRModal url={generateEventShareUrl(event)} onClose={() => setShowQR(false)} />}
       
-      <header className="px-6 py-3 border-b border-[#a5a5a5] flex items-center justify-between bg-black z-[100]">
+      <header className="px-6 py-3 border-b border-[#a5a5a5] flex items-center justify-between bg-black z-[100] shrink-0">
         <div className="flex items-center gap-4">
-          <button onClick={onGoHome} className="p-2 border border-[#a5a5a5] active:bg-white active:text-black transition-all" title="Circuit Home">
-            <ChevronLeft size={16} />
-          </button>
-          <div className="flex flex-col">
-            <h1 className="text-[10px] font-black italic tracking-tighter uppercase text-white/80">{event.name}</h1>
-            <div className="flex items-center gap-1.5">
-              <span className="w-1 h-1 bg-green-500 rounded-full animate-pulse"></span>
-              <span className="text-[7px] font-bold text-white/30 uppercase tracking-widest">Active Node</span>
-            </div>
-          </div>
+          <button onClick={onGoHome} className="p-2 border border-[#a5a5a5] active:bg-white active:text-black"><ChevronLeft size={16} /></button>
+          <div className="flex flex-col"><h1 className="text-[10px] font-black italic tracking-tighter uppercase">{event.name}</h1></div>
         </div>
         <div className="flex gap-2">
-          <button onClick={() => setShowQR(true)} className="p-2 border border-[#a5a5a5] active:bg-white active:text-black transition-all"><QrCode size={12} /></button>
-          <button onClick={() => setShowStandings(true)} className="p-2 border border-[#a5a5a5] active:bg-white active:text-black transition-all"><Trophy size={12} /></button>
-          <button 
-            onClick={onResetEventTrigger} 
-            className="px-3 py-1.5 border border-red-500 text-red-500 text-[8px] font-black uppercase tracking-widest hover:bg-red-500 hover:text-white transition-all"
-          >
-            RESET
-          </button>
+          <button onClick={() => setShowQR(true)} className="p-2 border border-[#a5a5a5] active:bg-white active:text-black"><QrCode size={12} /></button>
+          <button onClick={() => setShowStandings(true)} className="p-2 border border-[#a5a5a5] active:bg-white active:text-black"><Trophy size={12} /></button>
+          <button onClick={onResetEventTrigger} className="px-3 py-1.5 border border-red-500 text-red-500 text-[8px] font-black uppercase tracking-widest">RESET</button>
         </div>
       </header>
 
-      <main className="flex-1 overflow-y-auto px-4 pt-4 pb-[20rem] no-scrollbar">
+      <main className="flex-1 overflow-y-auto px-4 pt-4 pb-32 no-scrollbar">
         <div className="px-2 mb-6">
-          <div className="flex items-center justify-between mb-1">
-             <div className="text-[7px] font-black text-white/20 uppercase tracking-[0.4em]">Chronometer</div>
-             <div className="text-[7px] font-black text-white/20 uppercase tracking-[0.4em]">
-               {isPlayoffRound ? currentRound?.roundNumber : `Round ${currentRound?.roundNumber}`}
-             </div>
-          </div>
+          <div className="flex items-center justify-between mb-1"><div className="text-[7px] font-black text-white/20 uppercase">Chronometer</div><div className="text-[7px] font-black text-white/20 uppercase">{isPlayoffRound ? currentRound?.roundNumber : `Round ${currentRound?.roundNumber}`}</div></div>
           <div className="flex items-center justify-between mb-4">
              <div className="text-4xl font-black italic tracking-tighter tabular-nums">{getTimerDisplay(currentRound)}</div>
              {isHost && (
               <div className="flex gap-1.5">
-                <button 
-                  onClick={currentRound?.status === RoundStatus.IN_PROGRESS ? handlePauseRound : handleStartRound} 
-                  className="p-3 border border-[#a5a5a5] flex items-center justify-center min-w-[44px]"
-                >
-                  {currentRound?.status === RoundStatus.IN_PROGRESS ? <Pause size={14} fill="white" /> : <Play size={14} fill="white" />}
-                </button>
-                <button 
-                  onClick={handleResetRound} 
-                  className="p-3 border border-[#a5a5a5] flex items-center justify-center min-w-[44px]"
-                  title="Reset Round Data"
-                >
-                  <RotateCcw size={14} />
-                </button>
+                <button onClick={currentRound?.status === RoundStatus.IN_PROGRESS ? handlePauseRound : handleStartRound} className="p-3 border border-[#a5a5a5] flex items-center justify-center min-w-[44px]">{currentRound?.status === RoundStatus.IN_PROGRESS ? <Pause size={14} fill="white" /> : <Play size={14} fill="white" />}</button>
+                <button onClick={handleResetRound} className="p-3 border border-[#a5a5a5] flex items-center justify-center min-w-[44px]"><RotateCcw size={14} /></button>
               </div>
              )}
           </div>
-          
-          {byeTeam && !isPlayoffRound && (
-             <div className="border border-[#a5a5a5] p-2 flex items-center justify-between bg-white/[0.02] border-dashed">
-                <div className="text-[7px] font-black text-white/30 uppercase tracking-widest">BYE SQUAD</div>
-                <div className="text-[8px] font-black uppercase tracking-widest truncate">{byeTeam.player1} & {byeTeam.player2}</div>
-             </div>
-          )}
         </div>
 
         {allRRSubmitted && !event.playoffRounds && isHost && (
-          <div className="px-2 mb-12">
-            <Button onClick={handleInitializePlayoffs} className="w-full py-6 bg-yellow-500 text-black border-yellow-500">
-              Generate Playoff Bracket
-            </Button>
-            <p className="text-[8px] text-white/20 uppercase tracking-widest text-center mt-3">Finals sequence for top 4 seeds</p>
-          </div>
+          <div className="px-2 mb-12"><Button onClick={handleInitializePlayoffs} className="w-full py-6 bg-yellow-500 text-black border-yellow-500">Generate Playoff Bracket</Button></div>
         )}
 
         <div className="space-y-12">
-          {currentRound?.matches.map(match => {
-            const teamA = event.teams.find(t => t.id === match.teamAId);
-            const teamB = event.teams.find(t => t.id === match.teamBId);
-            return (
+          {currentRound?.matches.map(match => (
               <div key={match.id} className="page-transition">
                 <div className="flex items-center justify-between px-2 mb-3">
-                  <button 
-                    onClick={() => handleWinnerSelect(match.id, match.teamAId)}
-                    disabled={!isHost || currentRound.status === RoundStatus.SUBMITTED}
-                    className={`flex-1 py-1.5 text-[7px] font-black uppercase tracking-widest border border-dashed transition-all ${match.winnerId === match.teamAId ? 'bg-white text-black border-white' : 'text-white/20 border-[#a5a5a5]/20'}`}
-                  >
-                    {match.winnerId === match.teamAId ? 'WINNER ✓' : 'SELECT WINNER'}
-                  </button>
-                  <div className="w-12 text-center text-[7px] font-black text-white/10 uppercase tracking-tighter">
-                    {isPlayoffRound ? 'PLAYOFF' : `CRT ${match.courtNumber}`}
-                  </div>
-                  <button 
-                    onClick={() => handleWinnerSelect(match.id, match.teamBId)}
-                    disabled={!isHost || currentRound.status === RoundStatus.SUBMITTED}
-                    className={`flex-1 py-1.5 text-[7px] font-black uppercase tracking-widest border border-dashed transition-all ${match.winnerId === match.teamBId ? 'bg-white text-black border-white' : 'text-white/20 border-[#a5a5a5]/20'}`}
-                  >
-                    {match.winnerId === match.teamBId ? 'WINNER ✓' : 'SELECT WINNER'}
-                  </button>
+                  <button onClick={() => handleWinnerSelect(match.id, match.teamAId)} disabled={!isHost || currentRound.status === RoundStatus.SUBMITTED} className={`flex-1 py-1.5 text-[7px] font-black uppercase border border-dashed ${match.winnerId === match.teamAId ? 'bg-white text-black border-white' : 'text-white/20 border-[#a5a5a5]/20'}`}>{match.winnerId === match.teamAId ? 'WINNER ✓' : 'SELECT WINNER'}</button>
+                  <div className="w-12 text-center text-[7px] font-black text-white/10 uppercase italic">{isPlayoffRound ? 'PLAYOFF' : `CRT ${match.courtNumber}`}</div>
+                  <button onClick={() => handleWinnerSelect(match.id, match.teamBId)} disabled={!isHost || currentRound.status === RoundStatus.SUBMITTED} className={`flex-1 py-1.5 text-[7px] font-black uppercase border border-dashed ${match.winnerId === match.teamBId ? 'bg-white text-black border-white' : 'text-white/20 border-[#a5a5a5]/20'}`}>{match.winnerId === match.teamBId ? 'WINNER ✓' : 'SELECT WINNER'}</button>
                 </div>
-
-                <div className="flex items-start justify-between px-2 mb-3 pb-2">
-                  <div className="flex-1">
-                    <div className="text-[8px] font-black uppercase tracking-wider leading-tight text-white/80">{teamA?.player1} & {teamA?.player2}</div>
-                  </div>
-                  <div className="px-4 text-[7px] font-black text-white/20 italic tracking-widest self-center shrink-0">VS</div>
-                  <div className="flex-1 text-right">
-                    <div className="text-[8px] font-black uppercase tracking-wider leading-tight text-white/80">{teamB?.player1} & {teamB?.player2}</div>
-                  </div>
-                </div>
-                
                 <div className="flex items-center justify-center gap-6">
-                  <input 
-                    type="text"
-                    inputMode="numeric"
-                    placeholder="—"
-                    value={match.scoreA === null ? '' : match.scoreA} 
-                    onChange={e => handleScoreChange(match.id, 'A', e.target.value)}
-                    disabled={!isHost || currentRound.status === RoundStatus.SUBMITTED || !match.winnerId}
-                    className="w-16 h-16 bg-white/5 border border-[#a5a5a5] text-center text-2xl font-black italic outline-none focus:border-white disabled:opacity-10 text-white" 
-                  />
-                  <div className="text-white/5 text-[7px] font-black italic tracking-[0.4em]">PTS</div>
-                  <input 
-                    type="text"
-                    inputMode="numeric"
-                    placeholder="—"
-                    value={match.scoreB === null ? '' : match.scoreB} 
-                    onChange={e => handleScoreChange(match.id, 'B', e.target.value)}
-                    disabled={!isHost || currentRound.status === RoundStatus.SUBMITTED || !match.winnerId}
-                    className="w-16 h-16 bg-white/5 border border-[#a5a5a5] text-center text-2xl font-black italic outline-none focus:border-white disabled:opacity-10 text-white" 
-                  />
+                  <input type="text" inputMode="numeric" value={match.scoreA ?? ''} onChange={e => handleScoreChange(match.id, 'A', e.target.value)} disabled={!isHost || currentRound.status === RoundStatus.SUBMITTED || !match.winnerId} className="w-16 h-16 bg-white/5 border border-[#a5a5a5] text-center text-2xl font-black italic outline-none focus:border-white disabled:opacity-10 text-white" />
+                  <div className="text-white/5 text-[7px] font-black italic">PTS</div>
+                  <input type="text" inputMode="numeric" value={match.scoreB ?? ''} onChange={e => handleScoreChange(match.id, 'B', e.target.value)} disabled={!isHost || currentRound.status === RoundStatus.SUBMITTED || !match.winnerId} className="w-16 h-16 bg-white/5 border border-[#a5a5a5] text-center text-2xl font-black italic outline-none focus:border-white disabled:opacity-10 text-white" />
                 </div>
               </div>
-            );
-          })}
+          ))}
         </div>
       </main>
 
-      <footer className="fixed bottom-0 left-0 right-0 bg-black border-t border-[#a5a5a5] z-[200] pb-safe">
+      <footer className="fixed bottom-0 left-0 right-0 bg-black border-t border-[#a5a5a5] z-[200] pb-safe shrink-0">
         {isHost && currentRound?.status !== RoundStatus.SUBMITTED && (
-           <button 
-             onClick={handleSubmitScores}
-             disabled={currentRound?.status === RoundStatus.IN_PROGRESS}
-             className="w-full py-5 text-[9px] font-black uppercase tracking-[0.4em] bg-white text-black active:invert disabled:opacity-50"
-           >
-             SUBMIT ROUND LOGS
-           </button>
+           <button onClick={handleSubmitScores} disabled={currentRound?.status === RoundStatus.IN_PROGRESS} className="w-full py-5 text-[9px] font-black uppercase tracking-[0.4em] bg-white text-black active:invert disabled:opacity-50">SUBMIT ROUND LOGS</button>
         )}
-        
-        <div 
-          ref={roundScrollRef}
-          className="px-6 py-4 flex gap-2 overflow-x-auto no-scrollbar scroll-smooth snap-x snap-mandatory bg-black"
-        >
-          {allRounds.map((r, idx) => {
-            const isP = idx >= event.rounds.length;
-            return (
-              <button 
-                key={r.id} 
-                onClick={() => setActiveRoundIdx(idx)}
-                className={`flex-shrink-0 w-12 h-12 flex items-center justify-center transition-all border border-[#a5a5a5] snap-center relative ${
-                  activeRoundIdx === idx 
-                    ? 'bg-white text-black border-white shadow-[0_0_20px_rgba(255,255,255,0.15)]' 
-                    : (isP ? 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20' : 'bg-transparent text-white/30 border-[#a5a5a5]/20')
-                }`}
-              >
-                <span className="text-[11px] font-black italic tabular-nums">{r.roundNumber}</span>
-                {r.status === RoundStatus.SUBMITTED && (
-                  <div className="absolute top-0 right-0 bg-white text-black p-0.5"><Check size={6} strokeWidth={5} /></div>
-                )}
-              </button>
-            );
-          })}
-          <div className="flex-shrink-0 w-4" />
+        <div ref={roundScrollRef} className="px-6 py-4 flex gap-2 overflow-x-auto no-scrollbar scroll-smooth snap-x snap-mandatory bg-black">
+          {allRounds.map((r, idx) => (
+            <button key={r.id} onClick={() => setActiveRoundIdx(idx)} className={`flex-shrink-0 w-12 h-12 flex items-center justify-center transition-all border border-[#a5a5a5] snap-center relative ${activeRoundIdx === idx ? 'bg-white text-black border-white' : (idx >= event.rounds.length ? 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20' : 'bg-transparent text-white/30 border-[#a5a5a5]/20')}`}>
+              <span className="text-[11px] font-black italic tabular-nums">{r.roundNumber}</span>
+              {r.status === RoundStatus.SUBMITTED && <div className="absolute top-0 right-0 bg-white text-black p-0.5"><Check size={6} strokeWidth={5} /></div>}
+            </button>
+          ))}
         </div>
       </footer>
     </div>
@@ -998,75 +794,30 @@ export default function App() {
     return () => window.removeEventListener('hashchange', handleHash);
   }, []);
 
-  const handleCreateNew = () => setView('CREATE');
-  
-  const handleEventCreated = (ev: Event) => {
-    setActiveEvent(ev);
-    setView('TEAM_SETUP');
-  };
-
-  const handleTeamsConfirmed = (teams: Team[]) => {
-    if (!activeEvent) return;
-    const rounds = generateSchedule(teams, activeEvent.numberOfCourts);
-    const updated = { ...activeEvent, teams, rounds };
-    setActiveEvent(updated);
-    saveEvent(updated);
-    window.location.hash = `#/event/${updated.id}`;
-    setView('DASHBOARD');
-  };
-
   const handleEventUpdate = (updated: Event) => {
     setActiveEvent(updated);
     saveEvent(updated);
   };
 
   const handleResetEverything = () => {
-    if (activeEvent) {
-      deleteEvent(activeEvent.id);
-    }
+    if (activeEvent) deleteEvent(activeEvent.id);
     window.location.hash = '';
     setActiveEvent(null);
     setView('LANDING');
     setShowResetConfirm(false);
   };
 
-  const handleGoHome = () => {
-    window.location.hash = '';
-    setActiveEvent(null);
-    setView('LANDING');
-  };
-
-  const handleBack = () => {
-    if (view === 'CREATE') setView('LANDING');
-    else if (view === 'TEAM_SETUP') setView('CREATE');
-    else if (view === 'DASHBOARD') setShowResetConfirm(true);
-  };
-
   const isHost = activeEvent ? getHostToken(activeEvent.id) === activeEvent.hostToken : false;
 
   return (
-    <div className="min-h-screen relative text-white selection:bg-white selection:text-black bg-black">
+    <div className="min-h-screen relative text-white selection:bg-white selection:text-black bg-black overflow-hidden">
       <NagaiBackground />
-      <div className="relative z-10">
-        {showResetConfirm && (
-          <ConfirmResetModal 
-            onConfirm={handleResetEverything} 
-            onCancel={() => setShowResetConfirm(false)} 
-          />
-        )}
-        
-        {view === 'LANDING' && <LandingView onCreate={handleCreateNew} onResume={(id) => window.location.hash = `#/event/${id}`} />}
-        {view === 'CREATE' && <CreateView onCreated={handleEventCreated} onBack={handleBack} />}
-        {view === 'TEAM_SETUP' && activeEvent && <TeamSetupView event={activeEvent} onConfirm={handleTeamsConfirmed} onBack={handleBack} />}
-        {view === 'DASHBOARD' && activeEvent && (
-          <Dashboard 
-            event={activeEvent} 
-            onUpdate={handleEventUpdate} 
-            isHost={isHost}
-            onResetEventTrigger={() => setShowResetConfirm(true)}
-            onGoHome={handleGoHome}
-          />
-        )}
+      <div className="relative z-10 h-full">
+        {showResetConfirm && <ConfirmResetModal onConfirm={handleResetEverything} onCancel={() => setShowResetConfirm(false)} />}
+        {view === 'LANDING' && <LandingView onCreate={() => setView('CREATE')} onResume={(id) => window.location.hash = `#/event/${id}`} />}
+        {view === 'CREATE' && <CreateView onCreated={(ev) => { setActiveEvent(ev); setView('TEAM_SETUP'); }} onBack={() => setView('LANDING')} />}
+        {view === 'TEAM_SETUP' && activeEvent && <TeamSetupView event={activeEvent} onConfirm={(teams) => { const rounds = generateSchedule(teams, activeEvent.numberOfCourts); const updated = { ...activeEvent, teams, rounds }; setActiveEvent(updated); saveEvent(updated); window.location.hash = `#/event/${updated.id}`; setView('DASHBOARD'); }} onBack={() => setView('CREATE')} />}
+        {view === 'DASHBOARD' && activeEvent && <Dashboard event={activeEvent} onUpdate={handleEventUpdate} isHost={isHost} onResetEventTrigger={() => setShowResetConfirm(true)} onGoHome={() => { window.location.hash = ''; setActiveEvent(null); setView('LANDING'); }} />}
       </div>
     </div>
   );
