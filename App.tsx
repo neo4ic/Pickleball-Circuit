@@ -359,8 +359,8 @@ const TeamSetupView: React.FC<{ event: Event; onConfirm: (teams: Team[]) => void
 
   return (
     <div className="max-w-md mx-auto p-6 page-transition h-[100dvh] flex flex-col">
-      <header className="mb-6 mt-6 shrink-0">
-        <div className="flex items-center justify-between mb-4">
+      <header className="mb-4 mt-6 shrink-0">
+        <div className="flex items-center justify-between mb-2">
           <button onClick={onBack} className="p-2 border border-[#a5a5a5] hover:bg-white/5 transition-colors"><ChevronLeft size={18} /></button>
           <div className="text-right">
             {!isAllReady ? (
@@ -380,14 +380,14 @@ const TeamSetupView: React.FC<{ event: Event; onConfirm: (teams: Team[]) => void
       </header>
 
       {/* Progress Bar Container */}
-      <div className="w-full h-1 bg-white/10 mb-8 shrink-0 relative overflow-hidden">
+      <div className="w-full h-1.5 bg-white/10 mb-8 shrink-0 relative">
         <div 
-          className="absolute top-0 left-0 h-full bg-[#adada3] transition-all duration-300 ease-out"
+          className="absolute top-0 left-0 h-full bg-[#adada3] transition-all duration-500 ease-in-out"
           style={{ width: `${progressPercent}%` }}
         />
       </div>
 
-      <div className="flex-1 overflow-y-auto custom-scroll space-y-8 mb-4 pr-2">
+      <div className="flex-1 overflow-y-auto custom-scroll space-y-8 mb-4 pr-3">
         {teams.map((team, i) => {
           const ready = isTeamReady(team);
           return (
@@ -405,13 +405,13 @@ const TeamSetupView: React.FC<{ event: Event; onConfirm: (teams: Team[]) => void
                   type="text" placeholder="Player 1" 
                   value={team.player1}
                   onChange={e => updateTeam(i, 'player1', e.target.value)}
-                  className="w-full bg-transparent border-b border-[#a5a5a5] p-2 outline-none text-[10px] font-bold uppercase tracking-[0.3em] focus:border-white text-[#adada3]"
+                  className="w-full bg-transparent border-b border-[#a5a5a5] p-2 outline-none text-[10px] font-bold uppercase tracking-[0.3em] focus:border-white text-[#adada3] placeholder:text-white/10"
                 />
                 <input 
                   type="text" placeholder="Player 2" 
                   value={team.player2}
                   onChange={e => updateTeam(i, 'player2', e.target.value)}
-                  className="w-full bg-transparent border-b border-[#a5a5a5] p-2 outline-none text-[10px] font-bold uppercase tracking-[0.3em] focus:border-white text-[#adada3]"
+                  className="w-full bg-transparent border-b border-[#a5a5a5] p-2 outline-none text-[10px] font-bold uppercase tracking-[0.3em] focus:border-white text-[#adada3] placeholder:text-white/10"
                 />
               </div>
             </div>
@@ -765,36 +765,51 @@ const Dashboard: React.FC<{
             const teamB = event.teams.find(t => t.id === match.teamBId);
             return (
               <div key={match.id} className="page-transition">
-                <div className="flex items-center justify-between px-2 mb-3">
-                  <button onClick={() => handleWinnerSelect(match.id, match.teamAId)} disabled={!isHost || currentRound.status === RoundStatus.SUBMITTED} className={`flex-1 py-1.5 text-[7px] font-black uppercase border border-dashed truncate max-w-[40%] ${match.winnerId === match.teamAId ? 'bg-white text-black border-white' : 'text-white/20 border-[#a5a5a5]/20'}`}>
+                {/* Winner selection and court info grid */}
+                <div className="grid grid-cols-[1fr_40px_1fr] gap-2 px-1 mb-2">
+                  <button 
+                    onClick={() => handleWinnerSelect(match.id, match.teamAId)} 
+                    disabled={!isHost || currentRound.status === RoundStatus.SUBMITTED} 
+                    className={`py-1.5 text-[7px] font-black uppercase border border-dashed truncate transition-colors ${match.winnerId === match.teamAId ? 'bg-white text-black border-white' : 'text-[#adada3]/30 border-[#a5a5a5]/20'}`}
+                  >
                     {match.winnerId === match.teamAId ? 'WINNER ✓' : (teamA?.name || 'TEAM A')}
                   </button>
-                  <div className="w-12 text-center text-[7px] font-black text-white/10 uppercase italic">{isPlayoffRound ? 'PLAYOFF' : `CRT ${match.courtNumber}`}</div>
-                  <button onClick={() => handleWinnerSelect(match.id, match.teamBId)} disabled={!isHost || currentRound.status === RoundStatus.SUBMITTED} className={`flex-1 py-1.5 text-[7px] font-black uppercase border border-dashed truncate max-w-[40%] ${match.winnerId === match.teamBId ? 'bg-white text-black border-white' : 'text-white/20 border-[#a5a5a5]/20'}`}>
+                  <div className="flex items-center justify-center text-[7px] font-black text-white/10 uppercase italic shrink-0">
+                    {isPlayoffRound ? 'KO' : `C${match.courtNumber}`}
+                  </div>
+                  <button 
+                    onClick={() => handleWinnerSelect(match.id, match.teamBId)} 
+                    disabled={!isHost || currentRound.status === RoundStatus.SUBMITTED} 
+                    className={`py-1.5 text-[7px] font-black uppercase border border-dashed truncate transition-colors ${match.winnerId === match.teamBId ? 'bg-white text-black border-white' : 'text-[#adada3]/30 border-[#a5a5a5]/20'}`}
+                  >
                     {match.winnerId === match.teamBId ? 'WINNER ✓' : (teamB?.name || 'TEAM B')}
                   </button>
-                </div>
-                <div className="flex items-center w-full gap-2 px-2">
+
+                  {/* Score inputs sitting directly below buttons with identical alignment */}
                   <input 
                     type="text" inputMode="numeric" placeholder="00"
                     value={match.scoreA ?? ''} 
                     onChange={e => handleScoreChange(match.id, 'A', e.target.value)} 
                     disabled={!isHost || currentRound.status === RoundStatus.SUBMITTED || !match.winnerId} 
-                    className="flex-1 h-16 bg-white/5 border border-[#a5a5a5] text-center text-3xl font-black italic outline-none focus:border-white disabled:opacity-10 text-[#adada3]" 
+                    className="h-16 bg-white/[0.03] border border-[#a5a5a5] text-center text-3xl font-black italic outline-none focus:bg-white/5 focus:border-white disabled:opacity-10 text-[#adada3]" 
                   />
-                  <div className="px-2 text-white/10 text-[7px] font-black italic shrink-0">VS</div>
+                  <div className="flex items-center justify-center text-white/10 text-[7px] font-black italic">VS</div>
                   <input 
                     type="text" inputMode="numeric" placeholder="00"
                     value={match.scoreB ?? ''} 
                     onChange={e => handleScoreChange(match.id, 'B', e.target.value)} 
                     disabled={!isHost || currentRound.status === RoundStatus.SUBMITTED || !match.winnerId} 
-                    className="flex-1 h-16 bg-white/5 border border-[#a5a5a5] text-center text-3xl font-black italic outline-none focus:border-white disabled:opacity-10 text-[#adada3]" 
+                    className="h-16 bg-white/[0.03] border border-[#a5a5a5] text-center text-3xl font-black italic outline-none focus:bg-white/5 focus:border-white disabled:opacity-10 text-[#adada3]" 
                   />
                 </div>
-                {/* Names Footer */}
-                <div className="flex justify-between px-2 mt-2">
-                   <div className="text-[7px] font-bold uppercase tracking-widest text-[#adada3] w-[40%] truncate">{teamA?.player1} & {teamA?.player2}</div>
-                   <div className="text-[7px] font-bold uppercase tracking-widest text-[#adada3] w-[40%] text-right truncate">{teamB?.player1} & {teamB?.player2}</div>
+
+                <div className="flex justify-between px-1 mt-2">
+                   <div className="text-[7px] font-bold uppercase tracking-widest text-[#adada3] w-[45%] truncate">
+                     {teamA?.player1} & {teamA?.player2}
+                   </div>
+                   <div className="text-[7px] font-bold uppercase tracking-widest text-[#adada3] w-[45%] text-right truncate">
+                     {teamB?.player1} & {teamB?.player2}
+                   </div>
                 </div>
               </div>
             );
@@ -804,7 +819,7 @@ const Dashboard: React.FC<{
 
       <footer className="fixed bottom-0 left-0 right-0 bg-black border-t border-[#a5a5a5] z-[200] pb-safe shrink-0">
         {isHost && currentRound?.status !== RoundStatus.SUBMITTED && (
-           <button onClick={handleSubmitScores} disabled={currentRound?.status === RoundStatus.IN_PROGRESS} className="w-full py-5 text-[9px] font-black uppercase tracking-[0.4em] bg-white text-black active:invert disabled:opacity-50">SUBMIT ROUND LOGS</button>
+           <button onClick={handleSubmitScores} disabled={currentRound?.status === RoundStatus.IN_PROGRESS} className="w-full py-5 text-[9px] font-black uppercase tracking-[0.4em] bg-white text-black active:invert disabled:opacity-50">Submit Scores</button>
         )}
         <div ref={roundScrollRef} className="px-6 py-4 flex gap-2 overflow-x-auto no-scrollbar scroll-smooth snap-x snap-mandatory bg-black">
           {allRounds.map((r, idx) => (
