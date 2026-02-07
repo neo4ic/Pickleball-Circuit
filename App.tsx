@@ -22,7 +22,7 @@ import {
 } from 'lucide-react';
 import { nanoid } from 'nanoid';
 import QRCode from 'qrcode';
-import { Event, Team, Round, Match, RoundStatus, MatchStatus } from './types';
+import { Event, Team, Round, Match, RoundStatus, MatchStatus, StandingRow } from './types';
 import { generateSchedule } from './utils/scheduler';
 import { computeStandings } from './utils/standings';
 import { saveEvent, getEvent, setHostToken, getHostToken, getStoredEvents, generateEventShareUrl, deleteEvent } from './utils/persistence';
@@ -429,6 +429,50 @@ const TeamSetupView: React.FC<{ event: Event; onConfirm: (teams: Team[]) => void
   );
 };
 
+// --- Specialized Rankings Table Component ---
+const RankingsTable: React.FC<{ standings: StandingRow[]; teams: Team[] }> = ({ standings, teams }) => {
+  return (
+    <div className="border border-[#a5a5a5] overflow-x-auto no-scrollbar">
+      <table className="w-full text-left table-fixed min-w-[340px]">
+        <thead>
+          <tr className="bg-white/5 text-white/30 text-[7px] font-black uppercase tracking-[0.2em] border-b border-[#a5a5a5]">
+            <th className="w-[35px] px-2 py-3 text-center">RK</th>
+            <th className="px-2 py-3">SQUAD</th>
+            <th className="w-[45px] px-2 py-3 text-center">W-L</th>
+            <th className="w-[40px] px-2 py-3 text-center">PTS</th>
+            <th className="w-[45px] px-2 py-3 text-center">+/-</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-[#a5a5a5]/30">
+          {standings.map((row) => {
+            const team = teams.find(t => t.id === row.teamId);
+            return (
+              <tr key={row.teamId} className="hover:bg-white/[0.02] transition-colors">
+                <td className="px-2 py-5 font-black text-[10px] text-center italic">#{row.rank}</td>
+                <td className="px-2 py-5 truncate">
+                  <div className="font-bold text-[8px] uppercase tracking-widest leading-tight text-[#adada3] truncate">
+                    {team?.player1} & {team?.player2}
+                  </div>
+                  <div className="text-[6px] opacity-30 font-black uppercase mt-0.5">{team?.name}</div>
+                </td>
+                <td className="px-2 py-5 text-center font-bold text-[9px] tabular-nums whitespace-nowrap">
+                  {row.wins}-{row.losses}
+                </td>
+                <td className="px-2 py-5 text-center font-black text-[10px] tabular-nums">
+                  {row.pointsFor}
+                </td>
+                <td className={`px-2 py-5 text-center font-black text-[10px] tabular-nums ${row.diff > 0 ? 'text-green-500' : row.diff < 0 ? 'text-red-500' : ''}`}>
+                  {row.diff > 0 ? `+${row.diff}` : row.diff}
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+};
+
 const Dashboard: React.FC<{ 
   event: Event; 
   onUpdate: (ev: Event) => void;
@@ -445,6 +489,12 @@ const Dashboard: React.FC<{
 
   const standings = useMemo(() => computeStandings(event), [event]);
   
+  // Compute standings specifically for playoffs to show stats
+  const playoffStandings = useMemo(() => {
+    const pEvent: Event = { ...event, rounds: event.playoffRounds || [] };
+    return computeStandings(pEvent);
+  }, [event]);
+
   const allRounds = useMemo(() => {
     return [...event.rounds, ...(event.playoffRounds || [])];
   }, [event.rounds, event.playoffRounds]);
@@ -667,6 +717,11 @@ const Dashboard: React.FC<{
     return null;
   }, [event.playoffRounds, event.teams]);
 
+  const getOriginalSeed = (teamId: string) => {
+    const found = standings.find(s => s.teamId === teamId);
+    return found ? found.rank : '?';
+  };
+
   if (showStandings) {
     return (
       <div className="max-w-md mx-auto p-6 min-h-[100dvh] flex flex-col bg-black overflow-hidden">
@@ -684,30 +739,11 @@ const Dashboard: React.FC<{
 
         <div className="flex-1 overflow-y-auto no-scrollbar">
           {standingsTab === 'RR' ? (
-            <div className="border border-[#a5a5a5]">
-              <table className="w-full text-left">
-                <thead>
-                  <tr className="bg-white/5 text-white/30 text-[8px] font-black uppercase tracking-[0.3em]"><th className="px-4 py-3">RK</th><th className="px-4 py-3">SQUAD</th><th className="px-4 py-3 text-center">PTS</th></tr>
-                </thead>
-                <tbody className="divide-y divide-[#a5a5a5]">
-                  {standings.map(row => (
-                    <tr key={row.teamId}>
-                      <td className="px-4 py-6 font-black text-xs italic">#{row.rank}</td>
-                      <td className="px-4 py-6">
-                        <div className="font-bold text-[8px] uppercase tracking-widest leading-relaxed text-[#adada3]">
-                          {event.teams.find(t => t.id === row.teamId)?.player1} & {event.teams.find(t => t.id === row.teamId)?.player2}
-                        </div>
-                      </td>
-                      <td className="px-4 py-6 text-center font-black text-xs tabular-nums">{row.pointsFor}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <RankingsTable standings={standings} teams={event.teams} />
           ) : (
-            <div className="flex flex-col items-center">
-              {playoffWinner ? (
-                <div className="w-full border border-[#a5a5a5] p-8 text-center bg-white/[0.03] space-y-6">
+            <div className="flex flex-col gap-8">
+              {playoffWinner && (
+                <div className="w-full border border-[#a5a5a5] p-8 text-center bg-white/[0.03] space-y-4">
                   <Medal size={48} className="mx-auto text-yellow-500" />
                   <div>
                     <h3 className="text-[10px] font-black text-[#a5a5a5] uppercase tracking-[0.4em] mb-2">GOLD MEDALIST</h3>
@@ -716,9 +752,11 @@ const Dashboard: React.FC<{
                     </p>
                   </div>
                 </div>
-              ) : (
-                <div className="text-center p-12 text-white/20 text-[9px] uppercase tracking-widest">Pending Completion</div>
               )}
+              <div className="space-y-4">
+                <h3 className="text-[9px] font-black text-white/30 uppercase tracking-[0.3em] pl-1">Playoff Statistics</h3>
+                <RankingsTable standings={playoffStandings} teams={event.teams} />
+              </div>
             </div>
           )}
         </div>
@@ -783,6 +821,8 @@ const Dashboard: React.FC<{
             const teamB = event.teams.find(t => t.id === match.teamBId);
             const isWinnerA = match.winnerId === match.teamAId;
             const isWinnerB = match.winnerId === match.teamBId;
+            const seedA = match.isPlayoff ? getOriginalSeed(match.teamAId) : null;
+            const seedB = match.isPlayoff ? getOriginalSeed(match.teamBId) : null;
             
             return (
               <div key={match.id} className="page-transition border-b border-[#a5a5a5]/20 pb-4">
@@ -795,8 +835,13 @@ const Dashboard: React.FC<{
                   {/* Team A Row */}
                   <div className={`flex items-center justify-between p-3 transition-all duration-300 ${isWinnerA ? 'bg-green-500/10' : ''}`}>
                     <div className="text-left flex-1">
-                      <div className={`text-[10px] font-bold uppercase tracking-widest transition-colors ${isWinnerA ? 'text-green-500' : 'text-[#adada3]'}`}>
-                        {teamA?.player1}
+                      <div className="flex items-center gap-2">
+                        <div className={`text-[10px] font-bold uppercase tracking-widest transition-colors ${isWinnerA ? 'text-green-500' : 'text-[#adada3]'}`}>
+                          {teamA?.player1}
+                        </div>
+                        {seedA !== null && (
+                          <span className="bg-white/5 border border-white/10 px-1 text-[7px] font-black text-white/40">S{seedA}</span>
+                        )}
                       </div>
                       <div className={`text-[10px] font-bold uppercase tracking-widest transition-colors ${isWinnerA ? 'text-green-500' : 'text-[#adada3]'}`}>
                         {teamA?.player2}
@@ -831,8 +876,13 @@ const Dashboard: React.FC<{
                   {/* Team B Row */}
                   <div className={`flex items-center justify-between p-3 transition-all duration-300 ${isWinnerB ? 'bg-green-500/10' : ''}`}>
                     <div className="text-left flex-1">
-                      <div className={`text-[10px] font-bold uppercase tracking-widest transition-colors ${isWinnerB ? 'text-green-500' : 'text-[#adada3]'}`}>
-                        {teamB?.player1}
+                      <div className="flex items-center gap-2">
+                        <div className={`text-[10px] font-bold uppercase tracking-widest transition-colors ${isWinnerB ? 'text-green-500' : 'text-[#adada3]'}`}>
+                          {teamB?.player1}
+                        </div>
+                        {seedB !== null && (
+                          <span className="bg-white/5 border border-white/10 px-1 text-[7px] font-black text-white/40">S{seedB}</span>
+                        )}
                       </div>
                       <div className={`text-[10px] font-bold uppercase tracking-widest transition-colors ${isWinnerB ? 'text-green-500' : 'text-[#adada3]'}`}>
                         {teamB?.player2}
