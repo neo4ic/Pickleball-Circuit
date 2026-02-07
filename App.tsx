@@ -14,7 +14,7 @@ import {
   Copy, 
   Check, 
   Mail,
-  Heart,
+  Heart, 
   AlertTriangle,
   Info,
   Medal,
@@ -258,7 +258,7 @@ const CreateView: React.FC<{ onCreated: (ev: Event) => void; onBack: () => void 
 
       <div className="space-y-8 pb-12">
         <div className="space-y-3">
-          <label className="block text-[9px] font-black text-white/30 uppercase tracking-[0.4em]">Designation</label>
+          <label className="block text-[9px] font-black text-white/30 uppercase tracking-[0.4em]">Event Name:</label>
           <input 
             type="text" 
             value={name}
@@ -289,7 +289,7 @@ const CreateView: React.FC<{ onCreated: (ev: Event) => void; onBack: () => void 
         <div className="bg-white/5 border border-[#a5a5a5] p-4 space-y-3">
           <div className="flex items-center justify-between">
             <h3 className="text-[9px] font-black uppercase tracking-[0.3em] text-white/50 flex items-center gap-2">
-              <Info size={10} /> Round Robin Sequence
+              <span className="flex items-center gap-1"><Info size={10} /> Round Robin Sequence</span>
             </h3>
           </div>
           <div className="grid grid-cols-2 gap-y-4 gap-x-2">
@@ -430,7 +430,11 @@ const TeamSetupView: React.FC<{ event: Event; onConfirm: (teams: Team[]) => void
 };
 
 // --- Specialized Rankings Table Component ---
-const RankingsTable: React.FC<{ standings: StandingRow[]; teams: Team[] }> = ({ standings, teams }) => {
+const RankingsTable: React.FC<{ 
+  standings: StandingRow[]; 
+  teams: Team[]; 
+  isFinalPlayoff?: boolean;
+}> = ({ standings, teams, isFinalPlayoff }) => {
   return (
     <div className="border border-[#a5a5a5] overflow-x-auto no-scrollbar">
       <table className="w-full text-left table-fixed min-w-[340px]">
@@ -444,24 +448,32 @@ const RankingsTable: React.FC<{ standings: StandingRow[]; teams: Team[] }> = ({ 
           </tr>
         </thead>
         <tbody className="divide-y divide-[#a5a5a5]/30">
-          {standings.map((row) => {
+          {standings.map((row, idx) => {
             const team = teams.find(t => t.id === row.teamId);
+            let textColorClass = 'text-[#adada3]';
+            
+            if (isFinalPlayoff) {
+              if (idx === 0) textColorClass = 'text-yellow-500'; // Gold
+              else if (idx === 1) textColorClass = 'text-slate-400'; // Silver
+              else if (idx === 2) textColorClass = 'text-amber-700'; // Bronze
+            }
+
             return (
               <tr key={row.teamId} className="hover:bg-white/[0.02] transition-colors">
-                <td className="px-2 py-5 font-black text-[10px] text-center italic">#{row.rank}</td>
+                <td className={`px-2 py-5 font-black text-[10px] text-center italic ${isFinalPlayoff ? textColorClass : ''}`}>#{row.rank}</td>
                 <td className="px-2 py-5 truncate">
-                  <div className="font-bold text-[9px] uppercase tracking-widest leading-tight text-[#adada3] truncate">
+                  <div className={`font-bold text-[9px] uppercase tracking-widest leading-tight truncate ${textColorClass}`}>
                     {team?.player1} & {team?.player2}
                   </div>
                   <div className="text-[7px] opacity-30 font-black uppercase mt-0.5">{team?.name}</div>
                 </td>
-                <td className="px-2 py-5 text-center font-bold text-[10px] tabular-nums whitespace-nowrap">
+                <td className={`px-2 py-5 text-center font-bold text-[10px] tabular-nums whitespace-nowrap ${isFinalPlayoff ? textColorClass : ''}`}>
                   {row.wins}-{row.losses}
                 </td>
-                <td className="px-2 py-5 text-center font-black text-[10px] tabular-nums">
+                <td className={`px-2 py-5 text-center font-black text-[10px] tabular-nums ${isFinalPlayoff ? textColorClass : ''}`}>
                   {row.pointsFor}
                 </td>
-                <td className={`px-2 py-5 text-center font-black text-[10px] tabular-nums ${row.diff > 0 ? 'text-green-500' : row.diff < 0 ? 'text-red-500' : ''}`}>
+                <td className={`px-2 py-5 text-center font-black text-[10px] tabular-nums ${row.diff > 0 ? 'text-green-500' : row.diff < 0 ? 'text-red-500' : ''} ${isFinalPlayoff && idx < 3 ? '' : ''}`}>
                   {row.diff > 0 ? `+${row.diff}` : row.diff}
                 </td>
               </tr>
@@ -487,18 +499,23 @@ const Dashboard: React.FC<{
   const [currentTime, setCurrentTime] = useState(Date.now());
   const roundScrollRef = useRef<HTMLDivElement>(null);
 
-  // Compute overall standings (RR + Playoffs)
-  const standings = useMemo(() => computeStandings(event), [event]);
-  
-  // Tab-specific standings
+  // Rankings specifically for Round Robin only
   const rrStandings = useMemo(() => {
     const rrOnly = { ...event, playoffRounds: [] };
     return computeStandings(rrOnly);
   }, [event]);
 
+  // Rankings specifically for Playoff stats
   const playoffStandings = useMemo(() => {
+    if (!event.playoffRounds || event.playoffRounds.length === 0) return [];
+    
+    // Create a virtual event with just playoff rounds
     const pOnly = { ...event, rounds: event.playoffRounds || [] };
-    return computeStandings(pOnly);
+    const allStats = computeStandings(pOnly);
+    
+    // Filter to only include the top 4 teams that qualified for playoffs
+    const playoffTeamIds = new Set(event.playoffRounds.flatMap(r => r.matches.flatMap(m => [m.teamAId, m.teamBId])));
+    return allStats.filter(s => playoffTeamIds.has(s.teamId));
   }, [event]);
 
   const allRounds = useMemo(() => {
@@ -664,17 +681,48 @@ const Dashboard: React.FC<{
   const handleSubmitScores = () => {
     if (!isHost) return;
     const nextEvent = { ...event };
+    
     if (isPlayoffRound) {
       const pIdx = activeRoundIdx - event.rounds.length;
       const nextPlayoffs = [...(event.playoffRounds || [])];
-      nextPlayoffs[pIdx].status = RoundStatus.SUBMITTED;
+      const currentPRound = nextPlayoffs[pIdx];
+      currentPRound.status = RoundStatus.SUBMITTED;
+
+      // Logic for SF -> Finals/Bronze
+      if (currentPRound.roundNumber === 'SF') {
+        const m1 = currentPRound.matches[0];
+        const m2 = currentPRound.matches[1];
+
+        const w1 = m1.winnerId;
+        const l1 = m1.winnerId === m1.teamAId ? m1.teamBId : m1.teamAId;
+        const w2 = m2.winnerId;
+        const l2 = m2.winnerId === m2.teamAId ? m2.teamBId : m2.teamAId;
+
+        if (w1 && w2) {
+          nextPlayoffs.push({
+            id: 'round-finals',
+            roundNumber: 'FINALS',
+            status: RoundStatus.NOT_STARTED,
+            elapsedSeconds: 0,
+            matches: [
+              { id: 'match-f-gold', courtNumber: 1, teamAId: w1, teamBId: w2, scoreA: null, scoreB: null, status: MatchStatus.PENDING, isPlayoff: true },
+              { id: 'match-f-bronze', courtNumber: 2, teamAId: l1, teamBId: l2, scoreA: null, scoreB: null, status: MatchStatus.PENDING, isPlayoff: true }
+            ]
+          });
+        }
+      }
       nextEvent.playoffRounds = nextPlayoffs;
     } else {
       const nextRounds = [...event.rounds];
       nextRounds[activeRoundIdx].status = RoundStatus.SUBMITTED;
       nextEvent.rounds = nextRounds;
     }
+    
     onUpdate(nextEvent);
+    // If we just generated a new round, move to it
+    if (isPlayoffRound && nextEvent.playoffRounds && nextEvent.playoffRounds.length > (event.playoffRounds?.length || 0)) {
+       setActiveRoundIdx(allRounds.length);
+    }
   };
 
   const handleInitializePlayoffs = () => {
@@ -682,46 +730,25 @@ const Dashboard: React.FC<{
     const top4 = rrStandings.slice(0, 4);
     if (top4.length < 4) return;
 
-    let playoffRounds: Round[] = [];
-
-    if (event.numberOfTeams === 4) {
-      // Direct Finals Round for exactly 4 teams
-      playoffRounds = [{
-        id: 'round-finals',
-        roundNumber: 'FINALS',
-        status: RoundStatus.NOT_STARTED,
-        elapsedSeconds: 0,
-        matches: [
-          { id: 'match-f-1', courtNumber: 1, teamAId: top4[0].teamId, teamBId: top4[1].teamId, scoreA: null, scoreB: null, status: MatchStatus.PENDING, isPlayoff: true },
-          { id: 'match-f-2', courtNumber: 2, teamAId: top4[2].teamId, teamBId: top4[3].teamId, scoreA: null, scoreB: null, status: MatchStatus.PENDING, isPlayoff: true }
-        ]
-      }];
-    } else {
-      // Standard Semi-Finals for larger pools
-      playoffRounds = [{
-        id: 'round-sf',
-        roundNumber: 'SF',
-        status: RoundStatus.NOT_STARTED,
-        elapsedSeconds: 0,
-        matches: [
-          { id: 'match-sf-1', courtNumber: 1, teamAId: top4[0].teamId, teamBId: top4[3].teamId, scoreA: null, scoreB: null, status: MatchStatus.PENDING, isPlayoff: true },
-          { id: 'match-sf-2', courtNumber: 2, teamAId: top4[1].teamId, teamBId: top4[2].teamId, scoreA: null, scoreB: null, status: MatchStatus.PENDING, isPlayoff: true }
-        ]
-      }];
-    }
+    const playoffRounds: Round[] = [{
+      id: 'round-sf',
+      roundNumber: 'SF',
+      status: RoundStatus.NOT_STARTED,
+      elapsedSeconds: 0,
+      matches: [
+        { id: 'match-sf-1', courtNumber: 1, teamAId: top4[0].teamId, teamBId: top4[3].teamId, scoreA: null, scoreB: null, status: MatchStatus.PENDING, isPlayoff: true },
+        { id: 'match-sf-2', courtNumber: 2, teamAId: top4[1].teamId, teamBId: top4[2].teamId, scoreA: null, scoreB: null, status: MatchStatus.PENDING, isPlayoff: true }
+      ]
+    }];
+    
     onUpdate({ ...event, playoffRounds });
     setActiveRoundIdx(event.rounds.length);
   };
 
   const allRRSubmitted = event.rounds.every(r => r.status === RoundStatus.SUBMITTED);
-  const playoffWinner = useMemo(() => {
-    const finalRound = event.playoffRounds?.find(r => r.roundNumber === 'FINALS' && r.status === RoundStatus.SUBMITTED);
-    if (finalRound && finalRound.matches.length > 0) {
-      const finalMatch = finalRound.matches[0];
-      return event.teams.find(t => t.id === finalMatch.winnerId);
-    }
-    return null;
-  }, [event.playoffRounds, event.teams]);
+  const isTourneyFinished = useMemo(() => {
+    return event.playoffRounds?.some(r => r.roundNumber === 'FINALS' && r.status === RoundStatus.SUBMITTED);
+  }, [event.playoffRounds]);
 
   const getOriginalSeed = (teamId: string) => {
     const found = rrStandings.find(s => s.teamId === teamId);
@@ -743,7 +770,7 @@ const Dashboard: React.FC<{
           <button onClick={() => setStandingsTab('PLAYOFFS')} className={`flex-1 py-3 text-[9px] font-black tracking-widest uppercase ${standingsTab === 'PLAYOFFS' ? 'bg-white text-black' : 'text-white/40'}`}>PLAYOFFS</button>
         </div>
 
-        <div className="flex-1 overflow-y-auto no-scrollbar">
+        <div className="flex-1 overflow-y-auto no-scrollbar pb-12">
           {standingsTab === 'RR' ? (
             <div className="space-y-4">
               <h3 className="text-[9px] font-black text-white/30 uppercase tracking-[0.3em] pl-1">Round Robin Leaderboard</h3>
@@ -751,21 +778,18 @@ const Dashboard: React.FC<{
             </div>
           ) : (
             <div className="flex flex-col gap-8">
-              {playoffWinner && (
-                <div className="w-full border border-[#a5a5a5] p-8 text-center bg-white/[0.03] space-y-4">
-                  <Medal size={48} className="mx-auto text-yellow-500" />
-                  <div>
-                    <h3 className="text-[10px] font-black text-[#a5a5a5] uppercase tracking-[0.4em] mb-2">GOLD MEDALIST</h3>
-                    <p className="text-2xl font-black italic tracking-tighter uppercase text-[#adada3]">
-                      {playoffWinner.player1} & {playoffWinner.player2}
-                    </p>
-                  </div>
+              {playoffStandings.length > 0 ? (
+                <div className="space-y-4">
+                   <h3 className="text-[9px] font-black text-white/30 uppercase tracking-[0.3em] pl-1">Playoff Standings</h3>
+                   <RankingsTable 
+                    standings={playoffStandings} 
+                    teams={event.teams} 
+                    isFinalPlayoff={isTourneyFinished}
+                   />
                 </div>
+              ) : (
+                <div className="text-center p-12 text-white/20 text-[9px] uppercase tracking-widest border border-dashed border-white/10">Playoffs not yet initialized</div>
               )}
-              <div className="space-y-4">
-                <h3 className="text-[9px] font-black text-white/30 uppercase tracking-[0.3em] pl-1">Playoff Standings</h3>
-                <RankingsTable standings={playoffStandings} teams={event.teams} />
-              </div>
             </div>
           )}
         </div>
@@ -825,6 +849,9 @@ const Dashboard: React.FC<{
         )}
 
         <div className="space-y-4">
+          <div className="px-2 pb-2">
+            <h2 className="text-[10px] font-black text-white/40 uppercase tracking-[0.4em]">{currentRound?.roundNumber === 'SF' ? 'Semi-Final Brackets' : currentRound?.roundNumber === 'FINALS' ? 'Championship Round' : `Round ${currentRound?.roundNumber}`}</h2>
+          </div>
           {currentRound?.matches.map(match => {
             const teamA = event.teams.find(t => t.id === match.teamAId);
             const teamB = event.teams.find(t => t.id === match.teamBId);
@@ -833,11 +860,15 @@ const Dashboard: React.FC<{
             const seedA = match.isPlayoff ? getOriginalSeed(match.teamAId) : null;
             const seedB = match.isPlayoff ? getOriginalSeed(match.teamBId) : null;
             
+            const matchLabel = match.id.includes('gold') ? 'GOLD MATCH' : match.id.includes('bronze') ? 'BRONZE MATCH' : `COURT ${match.courtNumber}`;
+
             return (
               <div key={match.id} className="page-transition border-b border-[#a5a5a5]/20 pb-4">
                 <header className="flex items-center gap-2 mb-2 px-1">
-                  <span className="text-[8px] font-black text-orange-400 uppercase tracking-widest">COURT {match.courtNumber}</span>
-                  <div className="h-[1px] flex-1 bg-orange-400/20" />
+                  <span className={`text-[8px] font-black uppercase tracking-widest ${match.id.includes('gold') ? 'text-yellow-500' : 'text-orange-400'}`}>
+                    {matchLabel}
+                  </span>
+                  <div className="h-[1px] flex-1 bg-white/10" />
                 </header>
                 
                 <div className="flex flex-col gap-0 relative">
