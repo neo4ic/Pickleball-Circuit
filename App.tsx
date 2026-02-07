@@ -17,7 +17,8 @@ import {
   Heart,
   AlertTriangle,
   Info,
-  Medal
+  Medal,
+  CheckCircle2
 } from 'lucide-react';
 import { nanoid } from 'nanoid';
 import QRCode from 'qrcode';
@@ -405,13 +406,13 @@ const TeamSetupView: React.FC<{ event: Event; onConfirm: (teams: Team[]) => void
                   type="text" placeholder="Player 1" 
                   value={team.player1}
                   onChange={e => updateTeam(i, 'player1', e.target.value)}
-                  className="w-full bg-transparent border-b border-[#a5a5a5] p-2 outline-none text-[10px] font-bold uppercase tracking-[0.3em] focus:border-white text-[#adada3] placeholder:text-white/10"
+                  className="boxed-input"
                 />
                 <input 
                   type="text" placeholder="Player 2" 
                   value={team.player2}
                   onChange={e => updateTeam(i, 'player2', e.target.value)}
-                  className="w-full bg-transparent border-b border-[#a5a5a5] p-2 outline-none text-[10px] font-bold uppercase tracking-[0.3em] focus:border-white text-[#adada3] placeholder:text-white/10"
+                  className="boxed-input"
                 />
               </div>
             </div>
@@ -450,6 +451,13 @@ const Dashboard: React.FC<{
 
   const currentRound = allRounds[activeRoundIdx];
   const isPlayoffRound = activeRoundIdx >= event.rounds.length;
+
+  // Identify Bye Teams for current round
+  const roundTeamIds = new Set(currentRound?.matches.flatMap(m => [m.teamAId, m.teamBId]));
+  const byeTeams = event.teams.filter(t => !roundTeamIds.has(t.id));
+
+  // Count pending team scores (matches not marked COMPLETE)
+  const pendingScoresCount = currentRound?.matches.filter(m => m.status !== MatchStatus.COMPLETE).length || 0;
 
   useEffect(() => {
     const interval = setInterval(() => setCurrentTime(Date.now()), 1000);
@@ -524,49 +532,29 @@ const Dashboard: React.FC<{
     onUpdate(nextEvent);
   };
 
-  const handleResetRound = () => {
+  const handleResetRoundTimer = () => {
     if (!isHost) return;
-    if (!confirm('REBOOT ROUND? This wipes all scores and timer data for the current sequence.')) return;
+    if (!confirm('RESET CLOCK? This returns the timer to 00:00 and stops it.')) return;
     
     const nextEvent = { ...event };
-    const resetRoundData = (r: Round): Round => ({
+    const resetTimerData = (r: Round): Round => ({
       ...r,
       status: RoundStatus.NOT_STARTED,
       elapsedSeconds: 0,
       startTimestamp: undefined,
-      matches: r.matches.map(m => ({
-        ...m,
-        scoreA: null,
-        scoreB: null,
-        winnerId: undefined,
-        status: MatchStatus.PENDING
-      }))
     });
 
     if (isPlayoffRound) {
       const pIdx = activeRoundIdx - event.rounds.length;
       const nextPlayoffs = [...(event.playoffRounds || [])];
-      nextPlayoffs[pIdx] = resetRoundData(nextPlayoffs[pIdx]);
+      nextPlayoffs[pIdx] = resetTimerData(nextPlayoffs[pIdx]);
       nextEvent.playoffRounds = nextPlayoffs;
     } else {
       const nextRounds = [...event.rounds];
-      nextRounds[activeRoundIdx] = resetRoundData(nextRounds[activeRoundIdx]);
+      nextRounds[activeRoundIdx] = resetTimerData(nextRounds[activeRoundIdx]);
       nextEvent.rounds = nextRounds;
     }
     onUpdate(nextEvent);
-  };
-
-  const pauseTimerIfRunning = (round: Round): Round => {
-    if (round.status === RoundStatus.IN_PROGRESS && round.startTimestamp) {
-        const elapsedSinceStart = Math.floor((Date.now() - round.startTimestamp) / 1000);
-        return {
-            ...round,
-            status: RoundStatus.STOPPED,
-            elapsedSeconds: round.elapsedSeconds + elapsedSinceStart,
-            startTimestamp: undefined
-        };
-    }
-    return round;
   };
 
   const handleWinnerSelect = (matchId: string, teamId: string) => {
@@ -577,12 +565,10 @@ const Dashboard: React.FC<{
     if (isPlayoffRound) {
       const pIdx = activeRoundIdx - event.rounds.length;
       const nextPlayoffs = [...(event.playoffRounds || [])];
-      nextPlayoffs[pIdx] = pauseTimerIfRunning(nextPlayoffs[pIdx]);
       nextPlayoffs[pIdx].matches = updateMatches(nextPlayoffs[pIdx].matches);
       nextEvent.playoffRounds = nextPlayoffs;
     } else {
       const nextRounds = [...event.rounds];
-      nextRounds[activeRoundIdx] = pauseTimerIfRunning(nextRounds[activeRoundIdx]);
       nextRounds[activeRoundIdx].matches = updateMatches(nextRounds[activeRoundIdx].matches);
       nextEvent.rounds = nextRounds;
     }
@@ -609,12 +595,10 @@ const Dashboard: React.FC<{
     if (isPlayoffRound) {
       const pIdx = activeRoundIdx - event.rounds.length;
       const nextPlayoffs = [...(event.playoffRounds || [])];
-      nextPlayoffs[pIdx] = pauseTimerIfRunning(nextPlayoffs[pIdx]);
       nextPlayoffs[pIdx].matches = updateMatches(nextPlayoffs[pIdx].matches);
       nextEvent.playoffRounds = nextPlayoffs;
     } else {
       const nextRounds = [...event.rounds];
-      nextRounds[activeRoundIdx] = pauseTimerIfRunning(nextRounds[activeRoundIdx]);
       nextRounds[activeRoundIdx].matches = updateMatches(nextRounds[activeRoundIdx].matches);
       nextEvent.rounds = nextRounds;
     }
@@ -642,17 +626,34 @@ const Dashboard: React.FC<{
     const top4 = standings.slice(0, 4);
     if (top4.length < 4) return;
 
-    const semiFinalRound: Round = {
-      id: 'round-sf',
-      roundNumber: 'SF',
-      status: RoundStatus.NOT_STARTED,
-      elapsedSeconds: 0,
-      matches: [
-        { id: 'match-sf-1', courtNumber: 1, teamAId: top4[0].teamId, teamBId: top4[3].teamId, scoreA: null, scoreB: null, status: MatchStatus.PENDING, isPlayoff: true },
-        { id: 'match-sf-2', courtNumber: 2, teamAId: top4[1].teamId, teamBId: top4[2].teamId, scoreA: null, scoreB: null, status: MatchStatus.PENDING, isPlayoff: true }
-      ]
-    };
-    onUpdate({ ...event, playoffRounds: [semiFinalRound] });
+    let playoffRounds: Round[] = [];
+
+    if (event.numberOfTeams === 4) {
+      // Direct Finals Round for exactly 4 teams
+      playoffRounds = [{
+        id: 'round-finals',
+        roundNumber: 'FINALS',
+        status: RoundStatus.NOT_STARTED,
+        elapsedSeconds: 0,
+        matches: [
+          { id: 'match-f-1', courtNumber: 1, teamAId: top4[0].teamId, teamBId: top4[1].teamId, scoreA: null, scoreB: null, status: MatchStatus.PENDING, isPlayoff: true },
+          { id: 'match-f-2', courtNumber: 2, teamAId: top4[2].teamId, teamBId: top4[3].teamId, scoreA: null, scoreB: null, status: MatchStatus.PENDING, isPlayoff: true }
+        ]
+      }];
+    } else {
+      // Standard Semi-Finals for larger pools
+      playoffRounds = [{
+        id: 'round-sf',
+        roundNumber: 'SF',
+        status: RoundStatus.NOT_STARTED,
+        elapsedSeconds: 0,
+        matches: [
+          { id: 'match-sf-1', courtNumber: 1, teamAId: top4[0].teamId, teamBId: top4[3].teamId, scoreA: null, scoreB: null, status: MatchStatus.PENDING, isPlayoff: true },
+          { id: 'match-sf-2', courtNumber: 2, teamAId: top4[1].teamId, teamBId: top4[2].teamId, scoreA: null, scoreB: null, status: MatchStatus.PENDING, isPlayoff: true }
+        ]
+      }];
+    }
+    onUpdate({ ...event, playoffRounds });
     setActiveRoundIdx(event.rounds.length);
   };
 
@@ -743,13 +744,30 @@ const Dashboard: React.FC<{
 
       <main className="flex-1 overflow-y-auto px-4 pt-4 pb-32 no-scrollbar">
         <div className="px-2 mb-6">
-          <div className="flex items-center justify-between mb-1"><div className="text-[7px] font-black text-white/20 uppercase">Chronometer</div><div className="text-[7px] font-black text-white/20 uppercase">{isPlayoffRound ? currentRound?.roundNumber : `Round ${currentRound?.roundNumber}`}</div></div>
+          <div className="flex items-center justify-between mb-1">
+            <div className="text-[7px] font-black text-white/20 uppercase">Chronometer</div>
+          </div>
           <div className="flex items-center justify-between mb-4">
-             <div className="text-4xl font-black italic tracking-tighter tabular-nums">{getTimerDisplay(currentRound)}</div>
+             <div className="flex items-center gap-4">
+                <div className="text-4xl font-black italic tracking-tighter tabular-nums">{getTimerDisplay(currentRound)}</div>
+                <div className="text-[10px] font-black text-orange-400 uppercase tracking-widest border border-orange-400/20 px-2 py-1 bg-orange-400/5">
+                  Pending: {pendingScoresCount}
+                </div>
+             </div>
              {isHost && (
               <div className="flex gap-1.5">
-                <button onClick={currentRound?.status === RoundStatus.IN_PROGRESS ? handlePauseRound : handleStartRound} className="p-3 border border-[#a5a5a5] flex items-center justify-center min-w-[44px]">{currentRound?.status === RoundStatus.IN_PROGRESS ? <Pause size={14} fill="white" /> : <Play size={14} fill="white" />}</button>
-                <button onClick={handleResetRound} className="p-3 border border-[#a5a5a5] flex items-center justify-center min-w-[44px]"><RotateCcw size={14} /></button>
+                <button 
+                  onClick={currentRound?.status === RoundStatus.IN_PROGRESS ? handlePauseRound : handleStartRound} 
+                  className="p-3 border border-[#a5a5a5] flex items-center justify-center min-w-[44px]"
+                >
+                  {currentRound?.status === RoundStatus.IN_PROGRESS ? <Pause size={14} fill="white" /> : <Play size={14} fill="white" />}
+                </button>
+                <button 
+                  onClick={handleResetRoundTimer} 
+                  className="p-3 border border-[#a5a5a5] flex items-center justify-center min-w-[44px]"
+                >
+                  <RotateCcw size={14} />
+                </button>
               </div>
              )}
           </div>
@@ -759,61 +777,109 @@ const Dashboard: React.FC<{
           <div className="px-2 mb-12"><Button onClick={handleInitializePlayoffs} className="w-full py-6 bg-yellow-500 text-black border-yellow-500">Generate Playoff Bracket</Button></div>
         )}
 
-        <div className="space-y-12">
+        <div className="space-y-4">
           {currentRound?.matches.map(match => {
             const teamA = event.teams.find(t => t.id === match.teamAId);
             const teamB = event.teams.find(t => t.id === match.teamBId);
+            const isWinnerA = match.winnerId === match.teamAId;
+            const isWinnerB = match.winnerId === match.teamBId;
+            
             return (
-              <div key={match.id} className="page-transition">
-                {/* Winner selection and court info grid */}
-                <div className="grid grid-cols-[1fr_40px_1fr] gap-2 px-1 mb-2">
-                  <button 
-                    onClick={() => handleWinnerSelect(match.id, match.teamAId)} 
-                    disabled={!isHost || currentRound.status === RoundStatus.SUBMITTED} 
-                    className={`py-1.5 text-[7px] font-black uppercase border border-dashed truncate transition-colors ${match.winnerId === match.teamAId ? 'bg-white text-black border-white' : 'text-[#adada3]/30 border-[#a5a5a5]/20'}`}
-                  >
-                    {match.winnerId === match.teamAId ? 'WINNER ✓' : (teamA?.name || 'TEAM A')}
-                  </button>
-                  <div className="flex items-center justify-center text-[7px] font-black text-white/10 uppercase italic shrink-0">
-                    {isPlayoffRound ? 'KO' : `C${match.courtNumber}`}
+              <div key={match.id} className="page-transition border-b border-[#a5a5a5]/20 pb-4">
+                <header className="flex items-center gap-2 mb-2 px-1">
+                  <span className="text-[8px] font-black text-orange-400 uppercase tracking-widest">COURT {match.courtNumber}</span>
+                  <div className="h-[1px] flex-1 bg-orange-400/20" />
+                </header>
+                
+                <div className="flex flex-col gap-0 relative">
+                  {/* Team A Row */}
+                  <div className={`flex items-center justify-between p-3 transition-all duration-300 ${isWinnerA ? 'bg-green-500/10' : ''}`}>
+                    <div className="text-left flex-1">
+                      <div className={`text-[10px] font-bold uppercase tracking-widest transition-colors ${isWinnerA ? 'text-green-500' : 'text-[#adada3]'}`}>
+                        {teamA?.player1}
+                      </div>
+                      <div className={`text-[10px] font-bold uppercase tracking-widest transition-colors ${isWinnerA ? 'text-green-500' : 'text-[#adada3]'}`}>
+                        {teamA?.player2}
+                      </div>
+                      <div className="text-[7px] text-[#adada3]/30 font-black tracking-[0.3em] uppercase mt-1">{teamA?.name}</div>
+                    </div>
+
+                    <div className="flex items-center gap-2 ml-4">
+                      {isHost && currentRound.status !== RoundStatus.SUBMITTED && (
+                        <button 
+                          onClick={() => handleWinnerSelect(match.id, match.teamAId)}
+                          className={`p-2 border transition-colors ${isWinnerA ? 'bg-green-500 border-green-500 text-black' : 'border-[#a5a5a5]/20 text-white/10'}`}
+                        >
+                          <CheckCircle2 size={16} />
+                        </button>
+                      )}
+                      <input 
+                        type="text" inputMode="numeric" placeholder="-"
+                        value={match.scoreA ?? ''} 
+                        onChange={e => handleScoreChange(match.id, 'A', e.target.value)} 
+                        disabled={!isHost || currentRound.status === RoundStatus.SUBMITTED || !match.winnerId} 
+                        className={`score-input ${isWinnerA ? 'border-green-500 text-green-500' : 'opacity-40'}`} 
+                      />
+                    </div>
                   </div>
-                  <button 
-                    onClick={() => handleWinnerSelect(match.id, match.teamBId)} 
-                    disabled={!isHost || currentRound.status === RoundStatus.SUBMITTED} 
-                    className={`py-1.5 text-[7px] font-black uppercase border border-dashed truncate transition-colors ${match.winnerId === match.teamBId ? 'bg-white text-black border-white' : 'text-[#adada3]/30 border-[#a5a5a5]/20'}`}
-                  >
-                    {match.winnerId === match.teamBId ? 'WINNER ✓' : (teamB?.name || 'TEAM B')}
-                  </button>
 
-                  {/* Score inputs sitting directly below buttons with identical alignment */}
-                  <input 
-                    type="text" inputMode="numeric" placeholder="00"
-                    value={match.scoreA ?? ''} 
-                    onChange={e => handleScoreChange(match.id, 'A', e.target.value)} 
-                    disabled={!isHost || currentRound.status === RoundStatus.SUBMITTED || !match.winnerId} 
-                    className="h-16 bg-white/[0.03] border border-[#a5a5a5] text-center text-3xl font-black italic outline-none focus:bg-white/5 focus:border-white disabled:opacity-10 text-[#adada3]" 
-                  />
-                  <div className="flex items-center justify-center text-white/10 text-[7px] font-black italic">VS</div>
-                  <input 
-                    type="text" inputMode="numeric" placeholder="00"
-                    value={match.scoreB ?? ''} 
-                    onChange={e => handleScoreChange(match.id, 'B', e.target.value)} 
-                    disabled={!isHost || currentRound.status === RoundStatus.SUBMITTED || !match.winnerId} 
-                    className="h-16 bg-white/[0.03] border border-[#a5a5a5] text-center text-3xl font-black italic outline-none focus:bg-white/5 focus:border-white disabled:opacity-10 text-[#adada3]" 
-                  />
-                </div>
+                  {/* Divider */}
+                  <div className="relative h-[1px] w-full bg-[#a5a5a5]/30">
+                    <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 bg-black border border-[#a5a5a5]/30 rounded-full px-1.5 py-0.5 text-[6px] font-black italic text-[#a5a5a5] uppercase">VS</div>
+                  </div>
 
-                <div className="flex justify-between px-1 mt-2">
-                   <div className="text-[7px] font-bold uppercase tracking-widest text-[#adada3] w-[45%] truncate">
-                     {teamA?.player1} & {teamA?.player2}
-                   </div>
-                   <div className="text-[7px] font-bold uppercase tracking-widest text-[#adada3] w-[45%] text-right truncate">
-                     {teamB?.player1} & {teamB?.player2}
-                   </div>
+                  {/* Team B Row */}
+                  <div className={`flex items-center justify-between p-3 transition-all duration-300 ${isWinnerB ? 'bg-green-500/10' : ''}`}>
+                    <div className="text-left flex-1">
+                      <div className={`text-[10px] font-bold uppercase tracking-widest transition-colors ${isWinnerB ? 'text-green-500' : 'text-[#adada3]'}`}>
+                        {teamB?.player1}
+                      </div>
+                      <div className={`text-[10px] font-bold uppercase tracking-widest transition-colors ${isWinnerB ? 'text-green-500' : 'text-[#adada3]'}`}>
+                        {teamB?.player2}
+                      </div>
+                      <div className="text-[7px] text-[#adada3]/30 font-black tracking-[0.3em] uppercase mt-1">{teamB?.name}</div>
+                    </div>
+
+                    <div className="flex items-center gap-2 ml-4">
+                      {isHost && currentRound.status !== RoundStatus.SUBMITTED && (
+                        <button 
+                          onClick={() => handleWinnerSelect(match.id, match.teamBId)}
+                          className={`p-2 border transition-colors ${isWinnerB ? 'bg-green-500 border-green-500 text-black' : 'border-[#a5a5a5]/20 text-white/10'}`}
+                        >
+                          <CheckCircle2 size={16} />
+                        </button>
+                      )}
+                      <input 
+                        type="text" inputMode="numeric" placeholder="-"
+                        value={match.scoreB ?? ''} 
+                        onChange={e => handleScoreChange(match.id, 'B', e.target.value)} 
+                        disabled={!isHost || currentRound.status === RoundStatus.SUBMITTED || !match.winnerId} 
+                        className={`score-input ${isWinnerB ? 'border-green-500 text-green-500' : 'opacity-40'}`} 
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
             );
           })}
+
+          {/* BYE Section */}
+          {byeTeams.length > 0 && (
+            <div className="mt-8 page-transition">
+              <header className="flex items-center gap-2 mb-3 px-1">
+                <span className="text-[8px] font-black text-[#a5a5a5] uppercase tracking-[0.3em]">BYE</span>
+                <div className="h-[1px] flex-1 bg-[#a5a5a5]/20" />
+              </header>
+              <div className="bg-[#a5a5a5]/5 p-4 space-y-2">
+                {byeTeams.map(t => (
+                  <div key={t.id} className="flex justify-between items-center text-[10px] font-bold uppercase tracking-widest text-[#adada3]/50">
+                    <span>{t.player1} & {t.player2}</span>
+                    <span className="text-[7px] font-black opacity-30">{t.name}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </main>
 
