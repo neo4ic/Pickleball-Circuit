@@ -438,9 +438,9 @@ const RankingsTable: React.FC<{ standings: StandingRow[]; teams: Team[] }> = ({ 
           <tr className="bg-white/5 text-white/30 text-[7px] font-black uppercase tracking-[0.2em] border-b border-[#a5a5a5]">
             <th className="w-[35px] px-2 py-3 text-center">RK</th>
             <th className="px-2 py-3">SQUAD</th>
-            <th className="w-[45px] px-2 py-3 text-center">W-L</th>
-            <th className="w-[40px] px-2 py-3 text-center">PTS</th>
-            <th className="w-[45px] px-2 py-3 text-center">+/-</th>
+            <th className="w-[50px] px-2 py-3 text-center">W-L</th>
+            <th className="w-[45px] px-2 py-3 text-center">PTS</th>
+            <th className="w-[50px] px-2 py-3 text-center">+/-</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-[#a5a5a5]/30">
@@ -450,12 +450,12 @@ const RankingsTable: React.FC<{ standings: StandingRow[]; teams: Team[] }> = ({ 
               <tr key={row.teamId} className="hover:bg-white/[0.02] transition-colors">
                 <td className="px-2 py-5 font-black text-[10px] text-center italic">#{row.rank}</td>
                 <td className="px-2 py-5 truncate">
-                  <div className="font-bold text-[8px] uppercase tracking-widest leading-tight text-[#adada3] truncate">
+                  <div className="font-bold text-[9px] uppercase tracking-widest leading-tight text-[#adada3] truncate">
                     {team?.player1} & {team?.player2}
                   </div>
-                  <div className="text-[6px] opacity-30 font-black uppercase mt-0.5">{team?.name}</div>
+                  <div className="text-[7px] opacity-30 font-black uppercase mt-0.5">{team?.name}</div>
                 </td>
-                <td className="px-2 py-5 text-center font-bold text-[9px] tabular-nums whitespace-nowrap">
+                <td className="px-2 py-5 text-center font-bold text-[10px] tabular-nums whitespace-nowrap">
                   {row.wins}-{row.losses}
                 </td>
                 <td className="px-2 py-5 text-center font-black text-[10px] tabular-nums">
@@ -487,12 +487,18 @@ const Dashboard: React.FC<{
   const [currentTime, setCurrentTime] = useState(Date.now());
   const roundScrollRef = useRef<HTMLDivElement>(null);
 
+  // Compute overall standings (RR + Playoffs)
   const standings = useMemo(() => computeStandings(event), [event]);
   
-  // Compute standings specifically for playoffs to show stats
+  // Tab-specific standings
+  const rrStandings = useMemo(() => {
+    const rrOnly = { ...event, playoffRounds: [] };
+    return computeStandings(rrOnly);
+  }, [event]);
+
   const playoffStandings = useMemo(() => {
-    const pEvent: Event = { ...event, rounds: event.playoffRounds || [] };
-    return computeStandings(pEvent);
+    const pOnly = { ...event, rounds: event.playoffRounds || [] };
+    return computeStandings(pOnly);
   }, [event]);
 
   const allRounds = useMemo(() => {
@@ -673,7 +679,7 @@ const Dashboard: React.FC<{
 
   const handleInitializePlayoffs = () => {
     if (!isHost) return;
-    const top4 = standings.slice(0, 4);
+    const top4 = rrStandings.slice(0, 4);
     if (top4.length < 4) return;
 
     let playoffRounds: Round[] = [];
@@ -718,7 +724,7 @@ const Dashboard: React.FC<{
   }, [event.playoffRounds, event.teams]);
 
   const getOriginalSeed = (teamId: string) => {
-    const found = standings.find(s => s.teamId === teamId);
+    const found = rrStandings.find(s => s.teamId === teamId);
     return found ? found.rank : '?';
   };
 
@@ -739,7 +745,10 @@ const Dashboard: React.FC<{
 
         <div className="flex-1 overflow-y-auto no-scrollbar">
           {standingsTab === 'RR' ? (
-            <RankingsTable standings={standings} teams={event.teams} />
+            <div className="space-y-4">
+              <h3 className="text-[9px] font-black text-white/30 uppercase tracking-[0.3em] pl-1">Round Robin Leaderboard</h3>
+              <RankingsTable standings={rrStandings} teams={event.teams} />
+            </div>
           ) : (
             <div className="flex flex-col gap-8">
               {playoffWinner && (
@@ -754,7 +763,7 @@ const Dashboard: React.FC<{
                 </div>
               )}
               <div className="space-y-4">
-                <h3 className="text-[9px] font-black text-white/30 uppercase tracking-[0.3em] pl-1">Playoff Statistics</h3>
+                <h3 className="text-[9px] font-black text-white/30 uppercase tracking-[0.3em] pl-1">Playoff Standings</h3>
                 <RankingsTable standings={playoffStandings} teams={event.teams} />
               </div>
             </div>

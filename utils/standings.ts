@@ -20,9 +20,10 @@ export function computeStandings(event: Event): StandingRow[] {
     };
   });
 
-  // Process all submitted matches
-  event.rounds.forEach(round => {
-    if (round.status === RoundStatus.SUBMITTED) {
+  // Process all matches that are complete, regardless of round submission status
+  // This allows for real-time leaderboard updates as scores are entered.
+  const processRounds = (rounds: any[]) => {
+    rounds.forEach(round => {
       round.matches.forEach(match => {
         if (match.status === MatchStatus.COMPLETE && match.scoreA !== null && match.scoreB !== null) {
           const tA = standings[match.teamAId];
@@ -46,8 +47,13 @@ export function computeStandings(event: Event): StandingRow[] {
           }
         }
       });
-    }
-  });
+    });
+  };
+
+  processRounds(event.rounds);
+  if (event.playoffRounds) {
+    processRounds(event.playoffRounds);
+  }
 
   // Calculate differentials
   Object.values(standings).forEach(s => {
