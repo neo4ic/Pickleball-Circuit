@@ -14,6 +14,7 @@
             --bg: #000000;
             --fg: #ffffff;
             --accent: #a5a5a5;
+            --team-gray: #adada3;
         }
         html, body {
             height: 100%;
@@ -51,6 +52,17 @@
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         
+        /* Custom scrollbar for player setup */
+        .custom-scroll::-webkit-scrollbar {
+            width: 4px;
+        }
+        .custom-scroll::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.05);
+        }
+        .custom-scroll::-webkit-scrollbar-thumb {
+            background: #adada3;
+        }
+
         .page-transition {
             animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
         }

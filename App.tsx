@@ -340,7 +340,7 @@ const TeamSetupView: React.FC<{ event: Event; onConfirm: (teams: Team[]) => void
   const [teams, setTeams] = useState<Team[]>(
     Array.from({ length: event.numberOfTeams }, (_, i) => ({
       id: nanoid(),
-      name: `SQUAD ${i + 1}`,
+      name: `TEAM ${i + 1}`,
       player1: '',
       player2: ''
     }))
@@ -352,50 +352,75 @@ const TeamSetupView: React.FC<{ event: Event; onConfirm: (teams: Team[]) => void
     setTeams(next);
   };
 
-  const isReady = teams.every(t => t.player1 && t.player2);
+  const isTeamReady = (team: Team) => team.player1.trim() !== '' && team.player2.trim() !== '';
+  const readyCount = teams.filter(isTeamReady).length;
+  const isAllReady = readyCount === event.numberOfTeams;
+  const progressPercent = (readyCount / event.numberOfTeams) * 100;
 
   return (
     <div className="max-w-md mx-auto p-6 page-transition h-[100dvh] flex flex-col">
-      <header className="mb-10 mt-6 flex items-center justify-between shrink-0">
+      <header className="mb-6 mt-6 shrink-0">
+        <div className="flex items-center justify-between mb-4">
+          <button onClick={onBack} className="p-2 border border-[#a5a5a5] hover:bg-white/5 transition-colors"><ChevronLeft size={18} /></button>
+          <div className="text-right">
+            {!isAllReady ? (
+              <span className="text-[10px] font-black uppercase tracking-widest text-red-500">
+                {event.numberOfTeams - readyCount} TEAMS REQUIRED
+              </span>
+            ) : (
+              <span className="text-[10px] font-black uppercase tracking-widest text-green-500 flex items-center justify-end gap-2">
+                ALL TEAMS READY <Check size={12} strokeWidth={3} />
+              </span>
+            )}
+          </div>
+        </div>
         <div>
           <h1 className="text-2xl font-black uppercase italic tracking-tighter">ADD PLAYER NAMES</h1>
-          <p className="text-white/30 text-[8px] font-bold uppercase tracking-[0.3em] mt-1">ID Required for {event.numberOfTeams} pairs</p>
         </div>
-        <button onClick={onBack} className="p-2 border border-[#a5a5a5] hover:bg-white/5 transition-colors"><ChevronLeft size={18} /></button>
       </header>
 
-      <div className="flex-1 overflow-y-auto space-y-8 mb-4 no-scrollbar">
-        {teams.map((team, i) => (
-          <div key={team.id} className="border-t border-[#a5a5a5] pt-6">
-            <div className="flex items-center justify-between mb-4">
-              <span className="text-[9px] font-black text-white/30 tracking-[0.4em]">0{i + 1}</span>
-              <input 
-                type="text" 
-                value={team.name}
-                onChange={e => updateTeam(i, 'name', e.target.value)}
-                className="text-right font-black text-xs outline-none bg-transparent uppercase tracking-widest text-white/50"
-              />
+      {/* Progress Bar Container */}
+      <div className="w-full h-1 bg-white/10 mb-8 shrink-0 relative overflow-hidden">
+        <div 
+          className="absolute top-0 left-0 h-full bg-[#adada3] transition-all duration-300 ease-out"
+          style={{ width: `${progressPercent}%` }}
+        />
+      </div>
+
+      <div className="flex-1 overflow-y-auto custom-scroll space-y-8 mb-4 pr-2">
+        {teams.map((team, i) => {
+          const ready = isTeamReady(team);
+          return (
+            <div key={team.id} className="border-t border-[#a5a5a5] pt-6 first:border-t-0 first:pt-0">
+              <div className="flex items-center justify-between mb-4">
+                <span className={`text-[9px] font-black tracking-[0.4em] transition-colors ${ready ? 'text-green-500' : 'text-white/30'}`}>
+                  0{i + 1}
+                </span>
+                <span className={`text-right font-black text-xs uppercase tracking-widest transition-colors ${ready ? 'text-green-500' : 'text-[#adada3]'}`}>
+                  {team.name}
+                </span>
+              </div>
+              <div className="grid grid-cols-1 gap-4">
+                <input 
+                  type="text" placeholder="Player 1" 
+                  value={team.player1}
+                  onChange={e => updateTeam(i, 'player1', e.target.value)}
+                  className="w-full bg-transparent border-b border-[#a5a5a5] p-2 outline-none text-[10px] font-bold uppercase tracking-[0.3em] focus:border-white text-[#adada3]"
+                />
+                <input 
+                  type="text" placeholder="Player 2" 
+                  value={team.player2}
+                  onChange={e => updateTeam(i, 'player2', e.target.value)}
+                  className="w-full bg-transparent border-b border-[#a5a5a5] p-2 outline-none text-[10px] font-bold uppercase tracking-[0.3em] focus:border-white text-[#adada3]"
+                />
+              </div>
             </div>
-            <div className="grid grid-cols-1 gap-4">
-              <input 
-                type="text" placeholder="Player 1" 
-                value={team.player1}
-                onChange={e => updateTeam(i, 'player1', e.target.value)}
-                className="w-full bg-transparent border-b border-[#a5a5a5] p-2 outline-none text-[10px] font-bold uppercase tracking-[0.3em] focus:border-white"
-              />
-              <input 
-                type="text" placeholder="Player 2" 
-                value={team.player2}
-                onChange={e => updateTeam(i, 'player2', e.target.value)}
-                className="w-full bg-transparent border-b border-[#a5a5a5] p-2 outline-none text-[10px] font-bold uppercase tracking-[0.3em] focus:border-white"
-              />
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
 
       <div className="p-6 shrink-0 bg-black border-t border-[#a5a5a5] pb-safe">
-        <Button onClick={() => onConfirm(teams)} className="w-full py-5" disabled={!isReady}>
+        <Button onClick={() => onConfirm(teams)} className="w-full py-5" disabled={!isAllReady}>
           Begin Tournament
         </Button>
       </div>
@@ -667,7 +692,11 @@ const Dashboard: React.FC<{
                   {standings.map(row => (
                     <tr key={row.teamId}>
                       <td className="px-4 py-6 font-black text-xs italic">#{row.rank}</td>
-                      <td className="px-4 py-6"><div className="font-bold text-[8px] uppercase tracking-widest leading-relaxed">{event.teams.find(t => t.id === row.teamId)?.player1} & {event.teams.find(t => t.id === row.teamId)?.player2}</div></td>
+                      <td className="px-4 py-6">
+                        <div className="font-bold text-[8px] uppercase tracking-widest leading-relaxed text-[#adada3]">
+                          {event.teams.find(t => t.id === row.teamId)?.player1} & {event.teams.find(t => t.id === row.teamId)?.player2}
+                        </div>
+                      </td>
                       <td className="px-4 py-6 text-center font-black text-xs tabular-nums">{row.pointsFor}</td>
                     </tr>
                   ))}
@@ -679,7 +708,12 @@ const Dashboard: React.FC<{
               {playoffWinner ? (
                 <div className="w-full border border-[#a5a5a5] p-8 text-center bg-white/[0.03] space-y-6">
                   <Medal size={48} className="mx-auto text-yellow-500" />
-                  <div><h3 className="text-[10px] font-black text-[#a5a5a5] uppercase tracking-[0.4em] mb-2">GOLD MEDALIST</h3><p className="text-2xl font-black italic tracking-tighter uppercase">{playoffWinner.player1} & {playoffWinner.player2}</p></div>
+                  <div>
+                    <h3 className="text-[10px] font-black text-[#a5a5a5] uppercase tracking-[0.4em] mb-2">GOLD MEDALIST</h3>
+                    <p className="text-2xl font-black italic tracking-tighter uppercase text-[#adada3]">
+                      {playoffWinner.player1} & {playoffWinner.player2}
+                    </p>
+                  </div>
                 </div>
               ) : (
                 <div className="text-center p-12 text-white/20 text-[9px] uppercase tracking-widest">Pending Completion</div>
@@ -726,20 +760,45 @@ const Dashboard: React.FC<{
         )}
 
         <div className="space-y-12">
-          {currentRound?.matches.map(match => (
+          {currentRound?.matches.map(match => {
+            const teamA = event.teams.find(t => t.id === match.teamAId);
+            const teamB = event.teams.find(t => t.id === match.teamBId);
+            return (
               <div key={match.id} className="page-transition">
                 <div className="flex items-center justify-between px-2 mb-3">
-                  <button onClick={() => handleWinnerSelect(match.id, match.teamAId)} disabled={!isHost || currentRound.status === RoundStatus.SUBMITTED} className={`flex-1 py-1.5 text-[7px] font-black uppercase border border-dashed ${match.winnerId === match.teamAId ? 'bg-white text-black border-white' : 'text-white/20 border-[#a5a5a5]/20'}`}>{match.winnerId === match.teamAId ? 'WINNER ✓' : 'SELECT WINNER'}</button>
+                  <button onClick={() => handleWinnerSelect(match.id, match.teamAId)} disabled={!isHost || currentRound.status === RoundStatus.SUBMITTED} className={`flex-1 py-1.5 text-[7px] font-black uppercase border border-dashed truncate max-w-[40%] ${match.winnerId === match.teamAId ? 'bg-white text-black border-white' : 'text-white/20 border-[#a5a5a5]/20'}`}>
+                    {match.winnerId === match.teamAId ? 'WINNER ✓' : (teamA?.name || 'TEAM A')}
+                  </button>
                   <div className="w-12 text-center text-[7px] font-black text-white/10 uppercase italic">{isPlayoffRound ? 'PLAYOFF' : `CRT ${match.courtNumber}`}</div>
-                  <button onClick={() => handleWinnerSelect(match.id, match.teamBId)} disabled={!isHost || currentRound.status === RoundStatus.SUBMITTED} className={`flex-1 py-1.5 text-[7px] font-black uppercase border border-dashed ${match.winnerId === match.teamBId ? 'bg-white text-black border-white' : 'text-white/20 border-[#a5a5a5]/20'}`}>{match.winnerId === match.teamBId ? 'WINNER ✓' : 'SELECT WINNER'}</button>
+                  <button onClick={() => handleWinnerSelect(match.id, match.teamBId)} disabled={!isHost || currentRound.status === RoundStatus.SUBMITTED} className={`flex-1 py-1.5 text-[7px] font-black uppercase border border-dashed truncate max-w-[40%] ${match.winnerId === match.teamBId ? 'bg-white text-black border-white' : 'text-white/20 border-[#a5a5a5]/20'}`}>
+                    {match.winnerId === match.teamBId ? 'WINNER ✓' : (teamB?.name || 'TEAM B')}
+                  </button>
                 </div>
-                <div className="flex items-center justify-center gap-6">
-                  <input type="text" inputMode="numeric" value={match.scoreA ?? ''} onChange={e => handleScoreChange(match.id, 'A', e.target.value)} disabled={!isHost || currentRound.status === RoundStatus.SUBMITTED || !match.winnerId} className="w-16 h-16 bg-white/5 border border-[#a5a5a5] text-center text-2xl font-black italic outline-none focus:border-white disabled:opacity-10 text-white" />
-                  <div className="text-white/5 text-[7px] font-black italic">PTS</div>
-                  <input type="text" inputMode="numeric" value={match.scoreB ?? ''} onChange={e => handleScoreChange(match.id, 'B', e.target.value)} disabled={!isHost || currentRound.status === RoundStatus.SUBMITTED || !match.winnerId} className="w-16 h-16 bg-white/5 border border-[#a5a5a5] text-center text-2xl font-black italic outline-none focus:border-white disabled:opacity-10 text-white" />
+                <div className="flex items-center w-full gap-2 px-2">
+                  <input 
+                    type="text" inputMode="numeric" placeholder="00"
+                    value={match.scoreA ?? ''} 
+                    onChange={e => handleScoreChange(match.id, 'A', e.target.value)} 
+                    disabled={!isHost || currentRound.status === RoundStatus.SUBMITTED || !match.winnerId} 
+                    className="flex-1 h-16 bg-white/5 border border-[#a5a5a5] text-center text-3xl font-black italic outline-none focus:border-white disabled:opacity-10 text-[#adada3]" 
+                  />
+                  <div className="px-2 text-white/10 text-[7px] font-black italic shrink-0">VS</div>
+                  <input 
+                    type="text" inputMode="numeric" placeholder="00"
+                    value={match.scoreB ?? ''} 
+                    onChange={e => handleScoreChange(match.id, 'B', e.target.value)} 
+                    disabled={!isHost || currentRound.status === RoundStatus.SUBMITTED || !match.winnerId} 
+                    className="flex-1 h-16 bg-white/5 border border-[#a5a5a5] text-center text-3xl font-black italic outline-none focus:border-white disabled:opacity-10 text-[#adada3]" 
+                  />
+                </div>
+                {/* Names Footer */}
+                <div className="flex justify-between px-2 mt-2">
+                   <div className="text-[7px] font-bold uppercase tracking-widest text-[#adada3] w-[40%] truncate">{teamA?.player1} & {teamA?.player2}</div>
+                   <div className="text-[7px] font-bold uppercase tracking-widest text-[#adada3] w-[40%] text-right truncate">{teamB?.player1} & {teamB?.player2}</div>
                 </div>
               </div>
-          ))}
+            );
+          })}
         </div>
       </main>
 
