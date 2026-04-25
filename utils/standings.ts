@@ -1,5 +1,34 @@
 
-import { Event, StandingRow, MatchStatus, RoundStatus } from '../types';
+import { Event, StandingRow, MatchStatus, RoundStatus, ColorStats } from '../types';
+
+export function computeColorStats(event: Event): ColorStats {
+  const stats: ColorStats = { blackWins: 0, whiteWins: 0 };
+  const teamColorMap: Record<string, 'BLACK' | 'WHITE'> = {};
+  
+  event.teams.forEach(t => {
+    if (t.color) teamColorMap[t.id] = t.color;
+  });
+
+  const allRounds = [...event.rounds, ...(event.playoffRounds || [])];
+  
+  allRounds.forEach(round => {
+    round.matches.forEach(match => {
+      if (match.status === MatchStatus.COMPLETE && match.scoreA !== null && match.scoreB !== null) {
+        if (match.scoreA > match.scoreB) {
+          const winnerColor = teamColorMap[match.teamAId];
+          if (winnerColor === 'BLACK') stats.blackWins++;
+          else if (winnerColor === 'WHITE') stats.whiteWins++;
+        } else if (match.scoreB > match.scoreA) {
+          const winnerColor = teamColorMap[match.teamBId];
+          if (winnerColor === 'BLACK') stats.blackWins++;
+          else if (winnerColor === 'WHITE') stats.whiteWins++;
+        }
+      }
+    });
+  });
+
+  return stats;
+}
 
 export function computeStandings(event: Event): StandingRow[] {
   const standings: Record<string, StandingRow> = {};

@@ -1,5 +1,6 @@
 {
   "name": "Pickleball Circuit",
   "description": "Pickleball Circuit: The Free Pickleball Event App. Run and Track your pickleball Round Robin event for free!",
-  "requestFramePermissions": []
+  "requestFramePermissions": [],
+  "majorCapabilities": []
 }

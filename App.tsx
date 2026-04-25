@@ -24,7 +24,7 @@ import { nanoid } from 'nanoid';
 import QRCode from 'qrcode';
 import { Event, Team, Round, Match, RoundStatus, MatchStatus, StandingRow } from './types';
 import { generateSchedule } from './utils/scheduler';
-import { computeStandings } from './utils/standings';
+import { computeStandings, computeColorStats } from './utils/standings';
 import { saveEvent, getEvent, setHostToken, getHostToken, getStoredEvents, generateEventShareUrl, deleteEvent } from './utils/persistence';
 import { NagaiBackground } from './constants';
 
@@ -271,7 +271,7 @@ const CreateView: React.FC<{ onCreated: (ev: Event) => void; onBack: () => void 
           <div>
             <label className="block text-[9px] font-black text-white/30 uppercase tracking-[0.4em] mb-3">Teams: {teams}</label>
             <input 
-              type="range" min="4" max="24" value={teams} 
+              type="range" min="4" max="40" value={teams} 
               onChange={e => setTeams(parseInt(e.target.value))}
               className="w-full accent-white" 
             />
@@ -279,7 +279,7 @@ const CreateView: React.FC<{ onCreated: (ev: Event) => void; onBack: () => void 
           <div>
             <label className="block text-[9px] font-black text-white/30 uppercase tracking-[0.4em] mb-3">Courts: {courts}</label>
             <input 
-              type="range" min="1" max="12" value={courts} 
+              type="range" min="1" max="40" value={courts} 
               onChange={e => setCourts(parseInt(e.target.value))}
               className="w-full accent-white" 
             />
@@ -343,11 +343,12 @@ const TeamSetupView: React.FC<{ event: Event; onConfirm: (teams: Team[]) => void
       id: nanoid(),
       name: `TEAM ${i + 1}`,
       player1: '',
-      player2: ''
+      player2: '',
+      color: i % 2 === 0 ? 'BLACK' : 'WHITE' // Default to alternate
     }))
   );
 
-  const updateTeam = (idx: number, field: keyof Team, val: string) => {
+  const updateTeam = (idx: number, field: keyof Team, val: any) => {
     const next = [...teams];
     next[idx] = { ...next[idx], [field]: val };
     setTeams(next);
@@ -415,6 +416,21 @@ const TeamSetupView: React.FC<{ event: Event; onConfirm: (teams: Team[]) => void
                   className="boxed-input"
                 />
               </div>
+              
+              <div className="flex gap-2 mt-4">
+                <button 
+                  onClick={() => updateTeam(i, 'color', 'BLACK')}
+                  className={`flex-1 py-2 text-[8px] font-black uppercase tracking-widest border transition-all ${team.color === 'BLACK' ? 'bg-white text-black border-white' : 'bg-transparent text-white/40 border-white/20'}`}
+                >
+                  Circuit Black
+                </button>
+                <button 
+                  onClick={() => updateTeam(i, 'color', 'WHITE')}
+                  className={`flex-1 py-2 text-[8px] font-black uppercase tracking-widest border transition-all ${team.color === 'WHITE' ? 'bg-white text-black border-white' : 'bg-transparent text-white/40 border-white/20'}`}
+                >
+                  Circuit White
+                </button>
+              </div>
             </div>
           );
         })}
@@ -462,8 +478,11 @@ const RankingsTable: React.FC<{
               <tr key={row.teamId} className="hover:bg-white/[0.02] transition-colors">
                 <td className={`px-2 py-5 font-black text-[10px] text-center italic ${isFinalPlayoff ? textColorClass : ''}`}>#{row.rank}</td>
                 <td className="px-2 py-5 truncate">
-                  <div className={`font-bold text-[9px] uppercase tracking-widest leading-tight truncate ${textColorClass}`}>
-                    {team?.player1} & {team?.player2}
+                  <div className="flex items-center gap-1.5 mb-0.5">
+                    <div className={`font-bold text-[9px] uppercase tracking-widest leading-tight truncate ${textColorClass}`}>
+                      {team?.player1} & {team?.player2}
+                    </div>
+                    <div className={`w-1.5 h-1.5 rounded-full ${team?.color === 'BLACK' ? 'bg-white' : 'bg-white/20'}`} />
                   </div>
                   <div className="text-[7px] opacity-30 font-black uppercase mt-0.5">{team?.name}</div>
                 </td>
@@ -524,6 +543,8 @@ const Dashboard: React.FC<{
 
   const currentRound = allRounds[activeRoundIdx];
   const isPlayoffRound = activeRoundIdx >= event.rounds.length;
+
+  const colorStats = useMemo(() => computeColorStats(event), [event]);
 
   // Identify Bye Teams for current round
   const roundTeamIds = new Set(currentRound?.matches.flatMap(m => [m.teamAId, m.teamBId]));
@@ -814,6 +835,22 @@ const Dashboard: React.FC<{
       </header>
 
       <main className="flex-1 overflow-y-auto px-4 pt-4 pb-32 no-scrollbar">
+        {/* Circuit Pulse Section */}
+        <div className="grid grid-cols-2 gap-4 mb-8 px-2">
+          <div className="border border-white/20 p-4 relative overflow-hidden group">
+            <div className="absolute top-0 right-0 p-2 opacity-5 scale-150 rotate-12 group-hover:rotate-0 transition-transform"><Trophy size={48} /></div>
+            <div className="text-[7px] font-black uppercase text-white/30 tracking-[0.3em] mb-1">Circuit Black</div>
+            <div className="text-3xl font-black italic tracking-tighter">{colorStats.blackWins} <span className="text-[10px] non-italic text-white/20 uppercase tracking-widest ml-1">Wins</span></div>
+            <div className="h-1 w-full bg-white/10 mt-3"><div className="h-full bg-white" style={{ width: `${(colorStats.blackWins / (colorStats.blackWins + colorStats.whiteWins || 1)) * 100}%` }} /></div>
+          </div>
+          <div className="border border-white/20 p-4 relative overflow-hidden group bg-white/5">
+            <div className="absolute top-0 right-0 p-2 opacity-10 scale-150 -rotate-12 group-hover:rotate-0 transition-transform"><Trophy size={48} /></div>
+            <div className="text-[7px] font-black uppercase text-white/30 tracking-[0.3em] mb-1">Circuit White</div>
+            <div className="text-3xl font-black italic tracking-tighter">{colorStats.whiteWins} <span className="text-[10px] non-italic text-white/20 uppercase tracking-widest ml-1">Wins</span></div>
+            <div className="h-1 w-full bg-white/10 mt-3"><div className="h-full bg-white/30" style={{ width: `${(colorStats.whiteWins / (colorStats.blackWins + colorStats.whiteWins || 1)) * 100}%` }} /></div>
+          </div>
+        </div>
+
         <div className="px-2 mb-6">
           <div className="flex items-center justify-between mb-1">
             <div className="text-[7px] font-black text-white/20 uppercase">Chronometer</div>
@@ -879,6 +916,9 @@ const Dashboard: React.FC<{
                         <div className={`text-[10px] font-bold uppercase tracking-widest transition-colors ${isWinnerA ? 'text-green-500' : 'text-[#adada3]'}`}>
                           {teamA?.player1}
                         </div>
+                        <span className={`text-[7px] font-black px-1.5 py-0.5 border ${teamA?.color === 'BLACK' ? 'bg-white text-black border-white' : 'bg-transparent text-white border-white/20'}`}>
+                          {teamA?.color === 'BLACK' ? 'BLACK' : 'WHITE'}
+                        </span>
                         {seedA !== null && (
                           <span className="bg-white/5 border border-white/10 px-1 text-[7px] font-black text-white/40">S{seedA}</span>
                         )}
@@ -920,6 +960,9 @@ const Dashboard: React.FC<{
                         <div className={`text-[10px] font-bold uppercase tracking-widest transition-colors ${isWinnerB ? 'text-green-500' : 'text-[#adada3]'}`}>
                           {teamB?.player1}
                         </div>
+                        <span className={`text-[7px] font-black px-1.5 py-0.5 border ${teamB?.color === 'BLACK' ? 'bg-white text-black border-white' : 'bg-transparent text-white border-white/20'}`}>
+                          {teamB?.color === 'BLACK' ? 'BLACK' : 'WHITE'}
+                        </span>
                         {seedB !== null && (
                           <span className="bg-white/5 border border-white/10 px-1 text-[7px] font-black text-white/40">S{seedB}</span>
                         )}

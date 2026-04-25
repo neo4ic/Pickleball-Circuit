@@ -10,6 +10,7 @@ export interface Team {
   name: string;
   player1: string;
   player2: string;
+  color?: 'BLACK' | 'WHITE';
 }
 
 export enum MatchStatus {
@@ -62,6 +63,11 @@ export interface Event {
   teams: Team[];
   rounds: Round[];
   playoffRounds?: Round[];
+}
+
+export interface ColorStats {
+  blackWins: number;
+  whiteWins: number;
 }
 
 export interface StandingRow {
