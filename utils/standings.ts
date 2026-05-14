@@ -15,13 +15,21 @@ export function computeColorStats(event: Event): ColorStats {
     round.matches.forEach(match => {
       if (match.status === MatchStatus.COMPLETE && match.scoreA !== null && match.scoreB !== null) {
         if (match.scoreA > match.scoreB) {
-          const winnerColor = teamColorMap[match.teamAId];
-          if (winnerColor === 'BLACK') stats.blackWins++;
-          else if (winnerColor === 'WHITE') stats.whiteWins++;
+          if (match.teamAId === 'BLACK') stats.blackWins++;
+          else if (match.teamAId === 'WHITE') stats.whiteWins++;
+          else {
+            const winnerColor = teamColorMap[match.teamAId];
+            if (winnerColor === 'BLACK') stats.blackWins++;
+            else if (winnerColor === 'WHITE') stats.whiteWins++;
+          }
         } else if (match.scoreB > match.scoreA) {
-          const winnerColor = teamColorMap[match.teamBId];
-          if (winnerColor === 'BLACK') stats.blackWins++;
-          else if (winnerColor === 'WHITE') stats.whiteWins++;
+          if (match.teamBId === 'BLACK') stats.blackWins++;
+          else if (match.teamBId === 'WHITE') stats.whiteWins++;
+          else {
+            const winnerColor = teamColorMap[match.teamBId];
+            if (winnerColor === 'BLACK') stats.blackWins++;
+            else if (winnerColor === 'WHITE') stats.whiteWins++;
+          }
         }
       }
     });
@@ -55,25 +63,30 @@ export function computeStandings(event: Event): StandingRow[] {
     rounds.forEach(round => {
       round.matches.forEach(match => {
         if (match.status === MatchStatus.COMPLETE && match.scoreA !== null && match.scoreB !== null) {
-          const tA = standings[match.teamAId];
-          const tB = standings[match.teamBId];
+          const teamAIds = event.mode === 'INDIVIDUAL_6V_6' ? (match.playerAIds || []) : [match.teamAId];
+          const teamBIds = event.mode === 'INDIVIDUAL_6V_6' ? (match.playerBIds || []) : [match.teamBId];
 
-          if (tA && tB) {
-            tA.gamesPlayed++;
-            tB.gamesPlayed++;
-            tA.pointsFor += match.scoreA;
-            tA.pointsAgainst += match.scoreB;
-            tB.pointsFor += match.scoreB;
-            tB.pointsAgainst += match.scoreA;
-
-            if (match.scoreA > match.scoreB) {
-              tA.wins++;
-              tB.losses++;
-            } else if (match.scoreB > match.scoreA) {
-              tB.wins++;
-              tA.losses++;
+          teamAIds.forEach(id => {
+            const player = standings[id];
+            if (player) {
+              player.gamesPlayed++;
+              player.pointsFor += match.scoreA!;
+              player.pointsAgainst += match.scoreB!;
+              if (match.scoreA! > match.scoreB!) player.wins++;
+              else if (match.scoreB! > match.scoreA!) player.losses++;
             }
-          }
+          });
+
+          teamBIds.forEach(id => {
+            const player = standings[id];
+            if (player) {
+              player.gamesPlayed++;
+              player.pointsFor += match.scoreB!;
+              player.pointsAgainst += match.scoreA!;
+              if (match.scoreB! > match.scoreA!) player.wins++;
+              else if (match.scoreA! > match.scoreB!) player.losses++;
+            }
+          });
         }
       });
     });

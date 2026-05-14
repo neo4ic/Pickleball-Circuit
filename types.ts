@@ -1,5 +1,6 @@
 
 export type ScoringType = 'TRADITIONAL' | 'POINTS_FOR' | 'WIN_DIFF';
+export type EventMode = 'TEAM' | 'INDIVIDUAL_6V_6';
 
 export interface Player {
   name: string;
@@ -23,7 +24,9 @@ export interface Match {
   courtNumber: number;
   waveNumber?: number;
   teamAId: string;
-  teamBId: string; // "BYE" if odd teams
+  teamBId: string;
+  playerAIds?: string[]; // For individual modes
+  playerBIds?: string[]; // For individual modes
   scoreA: number | null;
   scoreB: number | null;
   status: MatchStatus;
@@ -60,6 +63,7 @@ export interface Event {
   pointsPerGame: number;
   winBy2: boolean;
   scoringType: ScoringType;
+  mode: EventMode;
   teams: Team[];
   rounds: Round[];
   playoffRounds?: Round[];

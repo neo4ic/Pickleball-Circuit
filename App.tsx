@@ -23,7 +23,7 @@ import {
 import { nanoid } from 'nanoid';
 import QRCode from 'qrcode';
 import { Event, Team, Round, Match, RoundStatus, MatchStatus, StandingRow } from './types';
-import { generateSchedule } from './utils/scheduler';
+import { generateSchedule, generate6v6Schedule } from './utils/scheduler';
 import { computeStandings, computeColorStats } from './utils/standings';
 import { saveEvent, getEvent, setHostToken, getHostToken, getStoredEvents, generateEventShareUrl, deleteEvent } from './utils/persistence';
 import { NagaiBackground } from './constants';
@@ -212,8 +212,18 @@ const CreateView: React.FC<{ onCreated: (ev: Event) => void; onBack: () => void 
   const [teams, setTeams] = useState(6);
   const [courts, setCourts] = useState(3);
   const [pts, setPts] = useState(11);
+  const [mode, setMode] = useState<EventMode>('TEAM');
 
   const projection = useMemo(() => {
+    if (mode === 'INDIVIDUAL_6V_6') {
+      return {
+        totalRounds: 5,
+        matchesPerRound: 3,
+        wavesPerRound: 1,
+        byes: 0,
+        totalMatches: 15
+      };
+    }
     const totalRounds = teams % 2 === 0 ? teams - 1 : teams;
     const matchesPerRound = Math.floor(teams / 2);
     const wavesPerRound = Math.ceil(matchesPerRound / courts);
@@ -227,7 +237,7 @@ const CreateView: React.FC<{ onCreated: (ev: Event) => void; onBack: () => void 
       byes,
       totalMatches
     };
-  }, [teams, courts]);
+  }, [teams, courts, mode]);
 
   const handleCreate = () => {
     const hostToken = nanoid();
@@ -237,8 +247,9 @@ const CreateView: React.FC<{ onCreated: (ev: Event) => void; onBack: () => void 
       createdAt: Date.now(),
       hostToken,
       hostPasscode: '0000',
-      numberOfTeams: teams,
-      numberOfCourts: courts,
+      mode,
+      numberOfTeams: mode === 'INDIVIDUAL_6V_6' ? 12 : teams,
+      numberOfCourts: mode === 'INDIVIDUAL_6V_6' ? 3 : courts,
       pointsPerGame: pts,
       winBy2: true,
       scoringType: 'TRADITIONAL',
@@ -258,6 +269,24 @@ const CreateView: React.FC<{ onCreated: (ev: Event) => void; onBack: () => void 
 
       <div className="space-y-8 pb-12">
         <div className="space-y-3">
+          <label className="block text-[9px] font-black text-white/30 uppercase tracking-[0.4em]">Event Type:</label>
+          <div className="flex border border-[#a5a5a5]">
+            <button 
+              onClick={() => setMode('TEAM')}
+              className={`flex-1 py-3 text-[9px] font-black uppercase tracking-widest ${mode === 'TEAM' ? 'bg-white text-black' : 'bg-transparent text-white/50'}`}
+            >
+              Team Circuit
+            </button>
+            <button 
+              onClick={() => setMode('INDIVIDUAL_6V_6')}
+              className={`flex-1 py-3 text-[9px] font-black uppercase tracking-widest ${mode === 'INDIVIDUAL_6V_6' ? 'bg-white text-black' : 'bg-transparent text-white/50'}`}
+            >
+              6v6 Individual
+            </button>
+          </div>
+        </div>
+
+        <div className="space-y-3">
           <label className="block text-[9px] font-black text-white/30 uppercase tracking-[0.4em]">Event Name:</label>
           <input 
             type="text" 
@@ -267,24 +296,36 @@ const CreateView: React.FC<{ onCreated: (ev: Event) => void; onBack: () => void 
           />
         </div>
 
-        <div className="grid grid-cols-2 gap-8">
-          <div>
-            <label className="block text-[9px] font-black text-white/30 uppercase tracking-[0.4em] mb-3">Teams: {teams}</label>
-            <input 
-              type="range" min="4" max="40" value={teams} 
-              onChange={e => setTeams(parseInt(e.target.value))}
-              className="w-full accent-white" 
-            />
+        {mode === 'TEAM' && (
+          <div className="grid grid-cols-2 gap-8">
+            <div>
+              <label className="block text-[9px] font-black text-white/30 uppercase tracking-[0.4em] mb-3">Teams: {teams}</label>
+              <input 
+                type="range" min="4" max="40" value={teams} 
+                onChange={e => setTeams(parseInt(e.target.value))}
+                className="w-full accent-white" 
+              />
+            </div>
+            <div>
+              <label className="block text-[9px] font-black text-white/30 uppercase tracking-[0.4em] mb-3">Courts: {courts}</label>
+              <input 
+                type="range" min="1" max="40" value={courts} 
+                onChange={e => setCourts(parseInt(e.target.value))}
+                className="w-full accent-white" 
+              />
+            </div>
           </div>
-          <div>
-            <label className="block text-[9px] font-black text-white/30 uppercase tracking-[0.4em] mb-3">Courts: {courts}</label>
-            <input 
-              type="range" min="1" max="40" value={courts} 
-              onChange={e => setCourts(parseInt(e.target.value))}
-              className="w-full accent-white" 
-            />
+        )}
+
+        {mode === 'INDIVIDUAL_6V_6' && (
+          <div className="bg-white/5 p-4 border border-[#a5a5a5]">
+            <p className="text-[10px] font-bold uppercase tracking-widest leading-loose">
+              <span className="text-white/40">Fixed Configuration:</span><br/>
+              12 Players (6 Black / 6 White)<br/>
+              3 Courts / 5 Balanced Rounds
+            </p>
           </div>
-        </div>
+        )}
 
         <div className="bg-white/5 border border-[#a5a5a5] p-4 space-y-3">
           <div className="flex items-center justify-between">
@@ -341,10 +382,14 @@ const TeamSetupView: React.FC<{ event: Event; onConfirm: (teams: Team[]) => void
   const [teams, setTeams] = useState<Team[]>(
     Array.from({ length: event.numberOfTeams }, (_, i) => ({
       id: nanoid(),
-      name: `TEAM ${i + 1}`,
+      name: event.mode === 'INDIVIDUAL_6V_6' 
+        ? `PLAYER ${i < 6 ? i + 1 : (i - 5)}`
+        : `TEAM ${i + 1}`,
       player1: '',
       player2: '',
-      color: i % 2 === 0 ? 'BLACK' : 'WHITE' // Default to alternate
+      color: event.mode === 'INDIVIDUAL_6V_6'
+        ? (i < 6 ? 'BLACK' : 'WHITE')
+        : (i % 2 === 0 ? 'BLACK' : 'WHITE')
     }))
   );
 
@@ -354,7 +399,12 @@ const TeamSetupView: React.FC<{ event: Event; onConfirm: (teams: Team[]) => void
     setTeams(next);
   };
 
-  const isTeamReady = (team: Team) => team.player1.trim() !== '' && team.player2.trim() !== '';
+  const isTeamReady = (team: Team) => {
+    if (event.mode === 'INDIVIDUAL_6V_6') {
+      return team.player1.trim() !== '';
+    }
+    return team.player1.trim() !== '' && team.player2.trim() !== '';
+  };
   const readyCount = teams.filter(isTeamReady).length;
   const isAllReady = readyCount === event.numberOfTeams;
   const progressPercent = (readyCount / event.numberOfTeams) * 100;
@@ -367,17 +417,19 @@ const TeamSetupView: React.FC<{ event: Event; onConfirm: (teams: Team[]) => void
           <div className="text-right">
             {!isAllReady ? (
               <span className="text-[10px] font-black uppercase tracking-widest text-red-500">
-                {event.numberOfTeams - readyCount} TEAMS REQUIRED
+                {event.numberOfTeams - readyCount} {event.mode === 'INDIVIDUAL_6V_6' ? 'PLAYERS' : 'TEAMS'} REQUIRED
               </span>
             ) : (
               <span className="text-[10px] font-black uppercase tracking-widest text-green-500 flex items-center justify-end gap-2">
-                ALL TEAMS READY <Check size={12} strokeWidth={3} />
+                ALL READY <Check size={12} strokeWidth={3} />
               </span>
             )}
           </div>
         </div>
         <div>
-          <h1 className="text-2xl font-black uppercase italic tracking-tighter">ADD PLAYER NAMES</h1>
+          <h1 className="text-2xl font-black uppercase italic tracking-tighter">
+            {event.mode === 'INDIVIDUAL_6V_6' ? 'ENTER ROSTER' : 'ADD PLAYER NAMES'}
+          </h1>
         </div>
       </header>
 
@@ -390,55 +442,93 @@ const TeamSetupView: React.FC<{ event: Event; onConfirm: (teams: Team[]) => void
       </div>
 
       <div className="flex-1 overflow-y-auto custom-scroll space-y-8 mb-4 pr-3">
-        {teams.map((team, i) => {
-          const ready = isTeamReady(team);
-          return (
-            <div key={team.id} className="border-t border-[#a5a5a5] pt-6 first:border-t-0 first:pt-0">
-              <div className="flex items-center justify-between mb-4">
-                <span className={`text-[9px] font-black tracking-[0.4em] transition-colors ${ready ? 'text-green-500' : 'text-white/30'}`}>
-                  0{i + 1}
-                </span>
-                <span className={`text-right font-black text-xs uppercase tracking-widest transition-colors ${ready ? 'text-green-500' : 'text-[#adada3]'}`}>
-                  {team.name}
-                </span>
+        {event.mode === 'INDIVIDUAL_6V_6' ? (
+          <div className="space-y-12 pb-8">
+            <section>
+              <h2 className="text-[10px] font-black uppercase tracking-[0.4em] mb-6 text-white border-b border-white/10 pb-2">BLACK CIRCUIT (6)</h2>
+              <div className="space-y-4">
+                {teams.filter(t => t.color === 'BLACK').map((team, i) => (
+                  <div key={team.id} className="flex gap-4">
+                    <div className="w-8 flex items-center justify-center text-[9px] font-black text-white/20">0{i+1}</div>
+                    <input 
+                      type="text" placeholder={`Black Player ${i+1}`}
+                      value={team.player1}
+                      onChange={e => updateTeam(teams.indexOf(team), 'player1', e.target.value)}
+                      className="boxed-input flex-1"
+                    />
+                  </div>
+                ))}
               </div>
-              <div className="grid grid-cols-1 gap-4">
-                <input 
-                  type="text" placeholder="Player 1" 
-                  value={team.player1}
-                  onChange={e => updateTeam(i, 'player1', e.target.value)}
-                  className="boxed-input"
-                />
-                <input 
-                  type="text" placeholder="Player 2" 
-                  value={team.player2}
-                  onChange={e => updateTeam(i, 'player2', e.target.value)}
-                  className="boxed-input"
-                />
+            </section>
+            
+            <section>
+              <h2 className="text-[10px] font-black uppercase tracking-[0.4em] mb-6 text-white border-b border-white/10 pb-2">WHITE CIRCUIT (6)</h2>
+              <div className="space-y-4">
+                {teams.filter(t => t.color === 'WHITE').map((team, i) => (
+                  <div key={team.id} className="flex gap-4">
+                    <div className="w-8 flex items-center justify-center text-[9px] font-black text-white/20">0{i+1}</div>
+                    <input 
+                      type="text" placeholder={`White Player ${i+1}`}
+                      value={team.player1}
+                      onChange={e => updateTeam(teams.indexOf(team), 'player1', e.target.value)}
+                      className="boxed-input flex-1"
+                    />
+                  </div>
+                ))}
               </div>
-              
-              <div className="flex gap-2 mt-4">
-                <button 
-                  onClick={() => updateTeam(i, 'color', 'BLACK')}
-                  className={`flex-1 py-2 text-[8px] font-black uppercase tracking-widest border transition-all ${team.color === 'BLACK' ? 'bg-white text-black border-white' : 'bg-transparent text-white/40 border-white/20'}`}
-                >
-                  Circuit Black
-                </button>
-                <button 
-                  onClick={() => updateTeam(i, 'color', 'WHITE')}
-                  className={`flex-1 py-2 text-[8px] font-black uppercase tracking-widest border transition-all ${team.color === 'WHITE' ? 'bg-white text-black border-white' : 'bg-transparent text-white/40 border-white/20'}`}
-                >
-                  Circuit White
-                </button>
+            </section>
+          </div>
+        ) : (
+          teams.map((team, i) => {
+            const ready = isTeamReady(team);
+            return (
+              <div key={team.id} className="border-t border-[#a5a5a5] pt-6 first:border-t-0 first:pt-0">
+                <div className="flex items-center justify-between mb-4">
+                  <span className={`text-[9px] font-black tracking-[0.4em] transition-colors ${ready ? 'text-green-500' : 'text-white/30'}`}>
+                    0{i + 1}
+                  </span>
+                  <span className={`text-right font-black text-xs uppercase tracking-widest transition-colors ${ready ? 'text-green-500' : 'text-[#adada3]'}`}>
+                    {team.name}
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 gap-4">
+                  <input 
+                    type="text" placeholder="Player 1" 
+                    value={team.player1}
+                    onChange={e => updateTeam(i, 'player1', e.target.value)}
+                    className="boxed-input"
+                  />
+                  <input 
+                    type="text" placeholder="Player 2" 
+                    value={team.player2}
+                    onChange={e => updateTeam(i, 'player2', e.target.value)}
+                    className="boxed-input"
+                  />
+                </div>
+                
+                <div className="flex gap-2 mt-4">
+                  <button 
+                    onClick={() => updateTeam(i, 'color', 'BLACK')}
+                    className={`flex-1 py-2 text-[8px] font-black uppercase tracking-widest border transition-all ${team.color === 'BLACK' ? 'bg-white text-black border-white' : 'bg-transparent text-white/40 border-white/20'}`}
+                  >
+                    Circuit Black
+                  </button>
+                  <button 
+                    onClick={() => updateTeam(i, 'color', 'WHITE')}
+                    className={`flex-1 py-2 text-[8px] font-black uppercase tracking-widest border transition-all ${team.color === 'WHITE' ? 'bg-white text-black border-white' : 'bg-transparent text-white/40 border-white/20'}`}
+                  >
+                    Circuit White
+                  </button>
+                </div>
               </div>
-            </div>
-          );
-        })}
+            );
+          })
+        )}
       </div>
 
       <div className="p-6 shrink-0 bg-black border-t border-[#a5a5a5] pb-safe">
         <Button onClick={() => onConfirm(teams)} className="w-full py-5" disabled={!isAllReady}>
-          Begin Tournament
+          BEGIN TOURNAMENT
         </Button>
       </div>
     </div>
@@ -480,11 +570,11 @@ const RankingsTable: React.FC<{
                 <td className="px-2 py-5 truncate">
                   <div className="flex items-center gap-1.5 mb-0.5">
                     <div className={`font-bold text-[9px] uppercase tracking-widest leading-tight truncate ${textColorClass}`}>
-                      {team?.player1} & {team?.player2}
+                      {event.mode === 'INDIVIDUAL_6V_6' ? team?.player1 : `${team?.player1} & ${team?.player2}`}
                     </div>
                     <div className={`w-1.5 h-1.5 rounded-full ${team?.color === 'BLACK' ? 'bg-white' : 'bg-white/20'}`} />
                   </div>
-                  <div className="text-[7px] opacity-30 font-black uppercase mt-0.5">{team?.name}</div>
+                  <div className="text-[7px] opacity-30 font-black uppercase mt-0.5">{event.mode === 'INDIVIDUAL_6V_6' ? (team?.color === 'BLACK' ? 'BLACK CIRCUIT' : 'WHITE CIRCUIT') : team?.name}</div>
                 </td>
                 <td className={`px-2 py-5 text-center font-bold text-[10px] tabular-nums whitespace-nowrap ${isFinalPlayoff ? textColorClass : ''}`}>
                   {row.wins}-{row.losses}
@@ -914,19 +1004,25 @@ const Dashboard: React.FC<{
                     <div className="text-left flex-1">
                       <div className="flex items-center gap-2">
                         <div className={`text-[10px] font-bold uppercase tracking-widest transition-colors ${isWinnerA ? 'text-green-500' : 'text-[#adada3]'}`}>
-                          {teamA?.player1}
+                          {event.mode === 'INDIVIDUAL_6V_6' 
+                            ? match.playerAIds?.map(id => event.teams.find(t => t.id === id)?.player1).join(' & ')
+                            : teamA?.player1}
                         </div>
-                        <span className={`text-[7px] font-black px-1.5 py-0.5 border ${teamA?.color === 'BLACK' ? 'bg-white text-black border-white' : 'bg-transparent text-white border-white/20'}`}>
-                          {teamA?.color === 'BLACK' ? 'BLACK' : 'WHITE'}
+                        <span className={`text-[7px] font-black px-1.5 py-0.5 border ${teamA?.color === 'BLACK' || match.teamAId === 'BLACK' ? 'bg-white text-black border-white' : 'bg-transparent text-white border-white/20'}`}>
+                          {teamA?.color === 'BLACK' || match.teamAId === 'BLACK' ? 'BLACK' : 'WHITE'}
                         </span>
                         {seedA !== null && (
                           <span className="bg-white/5 border border-white/10 px-1 text-[7px] font-black text-white/40">S{seedA}</span>
                         )}
                       </div>
-                      <div className={`text-[10px] font-bold uppercase tracking-widest transition-colors ${isWinnerA ? 'text-green-500' : 'text-[#adada3]'}`}>
-                        {teamA?.player2}
+                      {event.mode !== 'INDIVIDUAL_6V_6' && (
+                        <div className={`text-[10px] font-bold uppercase tracking-widest transition-colors ${isWinnerA ? 'text-green-500' : 'text-[#adada3]'}`}>
+                          {teamA?.player2}
+                        </div>
+                      )}
+                      <div className="text-[7px] text-[#adada3]/30 font-black tracking-[0.3em] uppercase mt-1">
+                        {event.mode === 'INDIVIDUAL_6V_6' ? 'Circuit Black' : teamA?.name}
                       </div>
-                      <div className="text-[7px] text-[#adada3]/30 font-black tracking-[0.3em] uppercase mt-1">{teamA?.name}</div>
                     </div>
 
                     <div className="flex items-center gap-2 ml-4">
@@ -958,19 +1054,25 @@ const Dashboard: React.FC<{
                     <div className="text-left flex-1">
                       <div className="flex items-center gap-2">
                         <div className={`text-[10px] font-bold uppercase tracking-widest transition-colors ${isWinnerB ? 'text-green-500' : 'text-[#adada3]'}`}>
-                          {teamB?.player1}
+                          {event.mode === 'INDIVIDUAL_6V_6' 
+                            ? match.playerBIds?.map(id => event.teams.find(t => t.id === id)?.player1).join(' & ')
+                            : teamB?.player1}
                         </div>
-                        <span className={`text-[7px] font-black px-1.5 py-0.5 border ${teamB?.color === 'BLACK' ? 'bg-white text-black border-white' : 'bg-transparent text-white border-white/20'}`}>
-                          {teamB?.color === 'BLACK' ? 'BLACK' : 'WHITE'}
+                        <span className={`text-[7px] font-black px-1.5 py-0.5 border ${teamB?.color === 'BLACK' || match.teamBId === 'BLACK' ? 'bg-white text-black border-white' : 'bg-transparent text-white border-white/20'}`}>
+                          {teamB?.color === 'BLACK' || match.teamBId === 'BLACK' ? 'BLACK' : 'WHITE'}
                         </span>
                         {seedB !== null && (
                           <span className="bg-white/5 border border-white/10 px-1 text-[7px] font-black text-white/40">S{seedB}</span>
                         )}
                       </div>
-                      <div className={`text-[10px] font-bold uppercase tracking-widest transition-colors ${isWinnerB ? 'text-green-500' : 'text-[#adada3]'}`}>
-                        {teamB?.player2}
+                      {event.mode !== 'INDIVIDUAL_6V_6' && (
+                        <div className={`text-[10px] font-bold uppercase tracking-widest transition-colors ${isWinnerB ? 'text-green-500' : 'text-[#adada3]'}`}>
+                          {teamB?.player2}
+                        </div>
+                      )}
+                      <div className="text-[7px] text-[#adada3]/30 font-black tracking-[0.3em] uppercase mt-1">
+                        {event.mode === 'INDIVIDUAL_6V_6' ? 'Circuit White' : teamB?.name}
                       </div>
-                      <div className="text-[7px] text-[#adada3]/30 font-black tracking-[0.3em] uppercase mt-1">{teamB?.name}</div>
                     </div>
 
                     <div className="flex items-center gap-2 ml-4">
@@ -1006,7 +1108,7 @@ const Dashboard: React.FC<{
               <div className="bg-[#a5a5a5]/5 p-4 space-y-2">
                 {byeTeams.map(t => (
                   <div key={t.id} className="flex justify-between items-center text-[10px] font-bold uppercase tracking-widest text-[#adada3]/50">
-                    <span>{t.player1} & {t.player2}</span>
+                    <span>{t.player1} {event.mode !== 'INDIVIDUAL_6V_6' ? `& ${t.player2}` : ''}</span>
                     <span className="text-[7px] font-black opacity-30">{t.name}</span>
                   </div>
                 ))}
@@ -1082,7 +1184,14 @@ export default function App() {
         {showResetConfirm && <ConfirmResetModal onConfirm={handleResetEverything} onCancel={() => setShowResetConfirm(false)} />}
         {view === 'LANDING' && <LandingView onCreate={() => setView('CREATE')} onResume={(id) => window.location.hash = `#/event/${id}`} />}
         {view === 'CREATE' && <CreateView onCreated={(ev) => { setActiveEvent(ev); setView('TEAM_SETUP'); }} onBack={() => setView('LANDING')} />}
-        {view === 'TEAM_SETUP' && activeEvent && <TeamSetupView event={activeEvent} onConfirm={(teams) => { const rounds = generateSchedule(teams, activeEvent.numberOfCourts); const updated = { ...activeEvent, teams, rounds }; setActiveEvent(updated); saveEvent(updated); window.location.hash = `#/event/${updated.id}`; setView('DASHBOARD'); }} onBack={() => setView('CREATE')} />}
+        {view === 'TEAM_SETUP' && activeEvent && <TeamSetupView event={activeEvent} onConfirm={(teams) => { 
+          const rounds = activeEvent.mode === 'INDIVIDUAL_6V_6' 
+            ? generate6v6Schedule(teams, activeEvent.numberOfCourts)
+            : generateSchedule(teams, activeEvent.numberOfCourts);
+          const updated = { ...activeEvent, teams, rounds }; 
+          setActiveEvent(updated); 
+          saveEvent(updated); 
+          window.location.hash = `#/event/${updated.id}`; setView('DASHBOARD'); }} onBack={() => setView('CREATE')} />}
         {view === 'DASHBOARD' && activeEvent && <Dashboard event={activeEvent} onUpdate={handleEventUpdate} isHost={isHost} onResetEventTrigger={() => setShowResetConfirm(true)} onGoHome={() => { window.location.hash = ''; setActiveEvent(null); setView('LANDING'); }} />}
       </div>
     </div>
