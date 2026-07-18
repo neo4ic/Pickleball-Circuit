@@ -1,6 +1,6 @@
 
 export type ScoringType = 'TRADITIONAL' | 'POINTS_FOR' | 'WIN_DIFF';
-export type EventMode = 'TEAM' | 'INDIVIDUAL_6V_6';
+export type EventMode = 'STANDARD' | 'TEAM' | 'INDIVIDUAL_6V_6';
 
 export interface Player {
   name: string;

@@ -1,5 +1,5 @@
 
-import { Event, StandingRow, MatchStatus, RoundStatus, ColorStats } from '../types';
+import { Event, StandingRow, MatchStatus, RoundStatus, ColorStats, Match } from '../types';
 
 export function computeColorStats(event: Event): ColorStats {
   const stats: ColorStats = { blackWins: 0, whiteWins: 0 };
@@ -117,3 +117,116 @@ export function computeStandings(event: Event): StandingRow[] {
   // Assign ranks
   return sorted.map((s, i) => ({ ...s, rank: i + 1 }));
 }
+
+export function computePlayoffStandings(event: Event, rrStandings: StandingRow[]): StandingRow[] {
+  if (!event.playoffRounds || event.playoffRounds.length === 0) return [];
+
+  // Default standings list from Top 4 rrStandings
+  const top4Ids = rrStandings.slice(0, 4).map(s => s.teamId);
+  const playoffStandingsMap: Record<string, StandingRow> = {};
+
+  // Initialize playoff stats using rrStandings/event.teams
+  top4Ids.forEach((teamId, index) => {
+    const team = event.teams.find(t => t.id === teamId);
+    playoffStandingsMap[teamId] = {
+      rank: index + 1,
+      teamId,
+      teamName: team?.name || `Team ${index + 1}`,
+      wins: 0,
+      losses: 0,
+      pointsFor: 0,
+      pointsAgainst: 0,
+      diff: 0,
+      gamesPlayed: 0,
+      byeCount: 0
+    };
+  });
+
+  // Collect all stats from playoff rounds
+  event.playoffRounds.forEach(round => {
+    round.matches.forEach(match => {
+      if (match.status === MatchStatus.COMPLETE && match.scoreA !== null && match.scoreB !== null) {
+        const pA = playoffStandingsMap[match.teamAId];
+        const pB = playoffStandingsMap[match.teamBId];
+
+        if (pA && pB) {
+          pA.gamesPlayed++;
+          pB.gamesPlayed++;
+          pA.pointsFor += match.scoreA;
+          pA.pointsAgainst += match.scoreB;
+          pB.pointsFor += match.scoreB;
+          pB.pointsAgainst += match.scoreA;
+
+          if (match.scoreA > match.scoreB) {
+            pA.wins++;
+            pB.losses++;
+          } else if (match.scoreB > match.scoreA) {
+            pB.wins++;
+            pA.losses++;
+          }
+        }
+      }
+    });
+  });
+
+  // Now determine the specific rank order from bracket results
+  const finalsRound = event.playoffRounds.find(r => r.roundNumber === 'FINALS');
+
+  let goldWinnerId: string | null = null;
+  let goldLoserId: string | null = null;
+  let bronzeWinnerId: string | null = null;
+  let bronzeLoserId: string | null = null;
+
+  if (finalsRound && finalsRound.status === RoundStatus.SUBMITTED) {
+    const goldMatch = finalsRound.matches.find(m => m.id === 'match-f-gold');
+    const bronzeMatch = finalsRound.matches.find(m => m.id === 'match-f-bronze');
+
+    if (goldMatch && goldMatch.status === MatchStatus.COMPLETE && goldMatch.scoreA !== null && goldMatch.scoreB !== null) {
+      if (goldMatch.scoreA > goldMatch.scoreB) {
+        goldWinnerId = goldMatch.teamAId;
+        goldLoserId = goldMatch.teamBId;
+      } else {
+        goldWinnerId = goldMatch.teamBId;
+        goldLoserId = goldMatch.teamAId;
+      }
+    }
+
+    if (bronzeMatch && bronzeMatch.status === MatchStatus.COMPLETE && bronzeMatch.scoreA !== null && bronzeMatch.scoreB !== null) {
+      if (bronzeMatch.scoreA > bronzeMatch.scoreB) {
+        bronzeWinnerId = bronzeMatch.teamAId;
+        bronzeLoserId = bronzeMatch.teamBId;
+      } else {
+        bronzeWinnerId = bronzeMatch.teamBId;
+        bronzeLoserId = bronzeMatch.teamAId;
+      }
+    }
+  }
+
+  // Generate ranks
+  const sorted = Object.values(playoffStandingsMap).sort((a, b) => {
+    // If Gold/Bronze match is finalized, sort according to strict bracket placement
+    if (goldWinnerId || goldLoserId || bronzeWinnerId || bronzeLoserId) {
+      const getRankValue = (teamId: string) => {
+        if (teamId === goldWinnerId) return 1;
+        if (teamId === goldLoserId) return 2;
+        if (teamId === bronzeWinnerId) return 3;
+        if (teamId === bronzeLoserId) return 4;
+        return 5;
+      };
+      
+      const rankA = getRankValue(a.teamId);
+      const rankB = getRankValue(b.teamId);
+      if (rankA !== rankB) return rankA - rankB;
+    }
+
+    // Fall back to wins / ratio
+    if (b.wins !== a.wins) return b.wins - a.wins;
+    const diffA = a.pointsFor - a.pointsAgainst;
+    const diffB = b.pointsFor - b.pointsAgainst;
+    if (diffB !== diffA) return diffB - diffA;
+    return b.pointsFor - a.pointsFor;
+  });
+
+  return sorted.map((s, i) => ({ ...s, rank: i + 1 }));
+}
+

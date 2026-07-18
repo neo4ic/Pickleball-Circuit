@@ -24,7 +24,7 @@ import { nanoid } from 'nanoid';
 import QRCode from 'qrcode';
 import { Event, Team, Round, Match, RoundStatus, MatchStatus, StandingRow } from './types';
 import { generateSchedule, generate6v6Schedule } from './utils/scheduler';
-import { computeStandings, computeColorStats } from './utils/standings';
+import { computeStandings, computeColorStats, computePlayoffStandings } from './utils/standings';
 import { saveEvent, getEvent, setHostToken, getHostToken, getStoredEvents, generateEventShareUrl, deleteEvent } from './utils/persistence';
 import { NagaiBackground } from './constants';
 
@@ -272,18 +272,29 @@ const CreateView: React.FC<{ onCreated: (ev: Event) => void; onBack: () => void 
           <label className="block text-[9px] font-black text-white/30 uppercase tracking-[0.4em]">Event Type:</label>
           <div className="flex border border-[#a5a5a5]">
             <button 
-              onClick={() => setMode('TEAM')}
-              className={`flex-1 py-3 text-[9px] font-black uppercase tracking-widest ${mode === 'TEAM' ? 'bg-white text-black' : 'bg-transparent text-white/50'}`}
+              onClick={() => { setMode('STANDARD'); setTeams(6); }}
+              className={`flex-1 py-3 text-[8px] font-black uppercase tracking-widest ${mode === 'STANDARD' ? 'bg-white text-black' : 'bg-transparent text-white/50 border-r border-[#a5a5a5]'}`}
+            >
+              Standard RR
+            </button>
+            <button 
+              onClick={() => { setMode('TEAM'); setTeams(6); }}
+              className={`flex-1 py-3 text-[8px] font-black uppercase tracking-widest ${mode === 'TEAM' ? 'bg-white text-black' : 'bg-transparent text-white/50 border-r border-[#a5a5a5]'}`}
             >
               Team Circuit
             </button>
             <button 
               onClick={() => setMode('INDIVIDUAL_6V_6')}
-              className={`flex-1 py-3 text-[9px] font-black uppercase tracking-widest ${mode === 'INDIVIDUAL_6V_6' ? 'bg-white text-black' : 'bg-transparent text-white/50'}`}
+              className={`flex-1 py-3 text-[8px] font-black uppercase tracking-widest ${mode === 'INDIVIDUAL_6V_6' ? 'bg-white text-black' : 'bg-transparent text-white/50'}`}
             >
               6v6 Individual
             </button>
           </div>
+          <p className="text-[8px] font-bold text-white/40 tracking-wider uppercase mt-2 leading-relaxed bg-white/5 p-3 border border-white/5">
+            {mode === 'STANDARD' && "Standard Round Robin: Traditional individual 2-player teams. Each team plays every other team once. No colors or group divisions."}
+            {mode === 'TEAM' && "Team Circuit: Squad-based Black vs White circuit play. Half of the 2-player teams are assigned to Black, half to White; you only play opposing circuit teams."}
+            {mode === 'INDIVIDUAL_6V_6' && "6v6 Individual: Singles/doubles format for 12 individuals split into Black vs White pools, pairing up and rotating in alternating match combinations."}
+          </p>
         </div>
 
         <div className="space-y-3">
@@ -296,7 +307,7 @@ const CreateView: React.FC<{ onCreated: (ev: Event) => void; onBack: () => void 
           />
         </div>
 
-        {mode === 'TEAM' && (
+        {(mode === 'STANDARD' || mode === 'TEAM') && (
           <div className="grid grid-cols-2 gap-8">
             <div>
               <label className="block text-[9px] font-black text-white/30 uppercase tracking-[0.4em] mb-3">Teams: {teams}</label>
@@ -389,7 +400,9 @@ const TeamSetupView: React.FC<{ event: Event; onConfirm: (teams: Team[]) => void
       player2: '',
       color: event.mode === 'INDIVIDUAL_6V_6'
         ? (i < 6 ? 'BLACK' : 'WHITE')
-        : (i % 2 === 0 ? 'BLACK' : 'WHITE')
+        : event.mode === 'TEAM'
+          ? (i % 2 === 0 ? 'BLACK' : 'WHITE')
+          : undefined
     }))
   );
 
@@ -487,39 +500,47 @@ const TeamSetupView: React.FC<{ event: Event; onConfirm: (teams: Team[]) => void
                   <span className={`text-[9px] font-black tracking-[0.4em] transition-colors ${ready ? 'text-green-500' : 'text-white/30'}`}>
                     0{i + 1}
                   </span>
-                  <span className={`text-right font-black text-xs uppercase tracking-widest transition-colors ${ready ? 'text-green-500' : 'text-[#adada3]'}`}>
-                    {team.name}
-                  </span>
                 </div>
                 <div className="grid grid-cols-1 gap-4">
                   <input 
-                    type="text" placeholder="Player 1" 
-                    value={team.player1}
-                    onChange={e => updateTeam(i, 'player1', e.target.value)}
-                    className="boxed-input"
+                    type="text" 
+                    placeholder="Team Name" 
+                    value={team.name}
+                    onChange={e => updateTeam(i, 'name', e.target.value)}
+                    className="boxed-input font-bold text-xs uppercase tracking-widest border-dashed"
                   />
-                  <input 
-                    type="text" placeholder="Player 2" 
-                    value={team.player2}
-                    onChange={e => updateTeam(i, 'player2', e.target.value)}
-                    className="boxed-input"
-                  />
+                  <div className="grid grid-cols-2 gap-4">
+                    <input 
+                      type="text" placeholder="Player 1" 
+                      value={team.player1}
+                      onChange={e => updateTeam(i, 'player1', e.target.value)}
+                      className="boxed-input"
+                    />
+                    <input 
+                      type="text" placeholder="Player 2" 
+                      value={team.player2}
+                      onChange={e => updateTeam(i, 'player2', e.target.value)}
+                      className="boxed-input"
+                    />
+                  </div>
                 </div>
                 
-                <div className="flex gap-2 mt-4">
-                  <button 
-                    onClick={() => updateTeam(i, 'color', 'BLACK')}
-                    className={`flex-1 py-2 text-[8px] font-black uppercase tracking-widest border transition-all ${team.color === 'BLACK' ? 'bg-white text-black border-white' : 'bg-transparent text-white/40 border-white/20'}`}
-                  >
-                    Circuit Black
-                  </button>
-                  <button 
-                    onClick={() => updateTeam(i, 'color', 'WHITE')}
-                    className={`flex-1 py-2 text-[8px] font-black uppercase tracking-widest border transition-all ${team.color === 'WHITE' ? 'bg-white text-black border-white' : 'bg-transparent text-white/40 border-white/20'}`}
-                  >
-                    Circuit White
-                  </button>
-                </div>
+                {event.mode === 'TEAM' && (
+                  <div className="flex gap-2 mt-4">
+                    <button 
+                      onClick={() => updateTeam(i, 'color', 'BLACK')}
+                      className={`flex-1 py-2 text-[8px] font-black uppercase tracking-widest border transition-all ${team.color === 'BLACK' ? 'bg-white text-black border-white' : 'bg-transparent text-white/40 border-white/20'}`}
+                    >
+                      Circuit Black
+                    </button>
+                    <button 
+                      onClick={() => updateTeam(i, 'color', 'WHITE')}
+                      className={`flex-1 py-2 text-[8px] font-black uppercase tracking-widest border transition-all ${team.color === 'WHITE' ? 'bg-white text-black border-white' : 'bg-transparent text-white/40 border-white/20'}`}
+                    >
+                      Circuit White
+                    </button>
+                  </div>
+                )}
               </div>
             );
           })
@@ -539,8 +560,9 @@ const TeamSetupView: React.FC<{ event: Event; onConfirm: (teams: Team[]) => void
 const RankingsTable: React.FC<{ 
   standings: StandingRow[]; 
   teams: Team[]; 
+  mode: 'STANDARD' | 'TEAM' | 'INDIVIDUAL_6V_6';
   isFinalPlayoff?: boolean;
-}> = ({ standings, teams, isFinalPlayoff }) => {
+}> = ({ standings, teams, mode, isFinalPlayoff }) => {
   return (
     <div className="border border-[#a5a5a5] overflow-x-auto no-scrollbar">
       <table className="w-full text-left table-fixed min-w-[340px]">
@@ -570,11 +592,17 @@ const RankingsTable: React.FC<{
                 <td className="px-2 py-5 truncate">
                   <div className="flex items-center gap-1.5 mb-0.5">
                     <div className={`font-bold text-[9px] uppercase tracking-widest leading-tight truncate ${textColorClass}`}>
-                      {event.mode === 'INDIVIDUAL_6V_6' ? team?.player1 : `${team?.player1} & ${team?.player2}`}
+                      {mode === 'INDIVIDUAL_6V_6' ? team?.player1 : `${team?.player1} & ${team?.player2}`}
                     </div>
-                    <div className={`w-1.5 h-1.5 rounded-full ${team?.color === 'BLACK' ? 'bg-white' : 'bg-white/20'}`} />
+                    {mode !== 'STANDARD' && (
+                      <div className={`w-1.5 h-1.5 rounded-full ${team?.color === 'BLACK' ? 'bg-white' : 'bg-white/20'}`} />
+                    )}
                   </div>
-                  <div className="text-[7px] opacity-30 font-black uppercase mt-0.5">{event.mode === 'INDIVIDUAL_6V_6' ? (team?.color === 'BLACK' ? 'BLACK CIRCUIT' : 'WHITE CIRCUIT') : team?.name}</div>
+                  <div className="text-[7px] opacity-30 font-black uppercase mt-0.5">
+                    {mode === 'INDIVIDUAL_6V_6' 
+                      ? (team?.color === 'BLACK' ? 'BLACK CIRCUIT' : 'WHITE CIRCUIT') 
+                      : team?.name}
+                  </div>
                 </td>
                 <td className={`px-2 py-5 text-center font-bold text-[10px] tabular-nums whitespace-nowrap ${isFinalPlayoff ? textColorClass : ''}`}>
                   {row.wins}-{row.losses}
@@ -616,20 +644,54 @@ const Dashboard: React.FC<{
 
   // Rankings specifically for Playoff stats
   const playoffStandings = useMemo(() => {
-    if (!event.playoffRounds || event.playoffRounds.length === 0) return [];
-    
-    // Create a virtual event with just playoff rounds
-    const pOnly = { ...event, rounds: event.playoffRounds || [] };
-    const allStats = computeStandings(pOnly);
-    
-    // Filter to only include the top 4 teams that qualified for playoffs
-    const playoffTeamIds = new Set(event.playoffRounds.flatMap(r => r.matches.flatMap(m => [m.teamAId, m.teamBId])));
-    return allStats.filter(s => playoffTeamIds.has(s.teamId));
-  }, [event]);
+    return computePlayoffStandings(event, rrStandings);
+  }, [event, rrStandings]);
 
   const allRounds = useMemo(() => {
     return [...event.rounds, ...(event.playoffRounds || [])];
   }, [event.rounds, event.playoffRounds]);
+
+  const championInfo = useMemo(() => {
+    // 1. Check if playoffs exist and are completed
+    if (event.playoffRounds && event.playoffRounds.length > 0) {
+      const finalsRound = event.playoffRounds.find(r => r.roundNumber === 'FINALS');
+      if (finalsRound && finalsRound.status === RoundStatus.SUBMITTED) {
+        const goldMatch = finalsRound.matches.find(m => m.id === 'match-f-gold');
+        if (goldMatch && goldMatch.status === MatchStatus.COMPLETE && goldMatch.scoreA !== null && goldMatch.scoreB !== null) {
+          const goldWinnerId = goldMatch.scoreA > goldMatch.scoreB ? goldMatch.teamAId : goldMatch.teamBId;
+          const team = event.teams.find(t => t.id === goldWinnerId);
+          return {
+            team,
+            names: event.mode === 'INDIVIDUAL_6V_6'
+              ? (goldMatch.scoreA > goldMatch.scoreB
+                  ? goldMatch.playerAIds?.map(id => event.teams.find(t => t.id === id)?.player1).join(' & ')
+                  : goldMatch.playerBIds?.map(id => event.teams.find(t => t.id === id)?.player1).join(' & '))
+              : team ? `${team.player1} & ${team.player2}` : 'Unknown Champion',
+            source: 'PLAYOFFS'
+          };
+        }
+      }
+      return null;
+    }
+
+    // 2. Otherwise, check if all round robin rounds are submitted
+    const allRRSubmitted = event.rounds.every(r => r.status === RoundStatus.SUBMITTED);
+    if (allRRSubmitted && event.rounds.length > 0) {
+      const leader = rrStandings[0];
+      if (leader) {
+        const team = event.teams.find(t => t.id === leader.teamId);
+        return {
+          team,
+          names: event.mode === 'INDIVIDUAL_6V_6'
+            ? team?.player1
+            : team ? `${team.player1} & ${team.player2}` : 'Unknown Champion',
+          source: 'ROUND_ROBIN'
+        };
+      }
+    }
+
+    return null;
+  }, [event, rrStandings]);
 
   const currentRound = allRounds[activeRoundIdx];
   const isPlayoffRound = activeRoundIdx >= event.rounds.length;
@@ -885,7 +947,7 @@ const Dashboard: React.FC<{
           {standingsTab === 'RR' ? (
             <div className="space-y-4">
               <h3 className="text-[9px] font-black text-white/30 uppercase tracking-[0.3em] pl-1">Round Robin Leaderboard</h3>
-              <RankingsTable standings={rrStandings} teams={event.teams} />
+              <RankingsTable standings={rrStandings} teams={event.teams} mode={event.mode} />
             </div>
           ) : (
             <div className="flex flex-col gap-8">
@@ -893,6 +955,7 @@ const Dashboard: React.FC<{
                 <div className="space-y-4">
                    <h3 className="text-[9px] font-black text-white/30 uppercase tracking-[0.3em] pl-1">Playoff Standings</h3>
                    <RankingsTable 
+                    mode={event.mode}
                     standings={playoffStandings} 
                     teams={event.teams} 
                     isFinalPlayoff={isTourneyFinished}
@@ -925,21 +988,41 @@ const Dashboard: React.FC<{
       </header>
 
       <main className="flex-1 overflow-y-auto px-4 pt-4 pb-32 no-scrollbar">
+        {championInfo && (
+          <div className="mx-2 mb-8 p-6 border border-yellow-500/40 bg-yellow-500/5 relative overflow-hidden text-center">
+            <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-transparent via-yellow-500 to-transparent" />
+            <div className="inline-flex p-3 rounded-full bg-yellow-500/10 text-yellow-500 mb-3 animate-pulse">
+              <Trophy size={28} />
+            </div>
+            <div className="text-[8px] font-black uppercase text-yellow-500/60 tracking-[0.4em] mb-1">
+              Tournament Champion
+            </div>
+            <h2 className="text-xl font-black text-white tracking-tighter uppercase mb-2">
+              {championInfo.names}
+            </h2>
+            <div className="text-[7px] text-white/30 font-black tracking-widest uppercase">
+              {championInfo.source === 'PLAYOFFS' ? 'Winner of Gold Final' : 'Leader of Round Robin Standings'}
+            </div>
+          </div>
+        )}
+
         {/* Circuit Pulse Section */}
-        <div className="grid grid-cols-2 gap-4 mb-8 px-2">
-          <div className="border border-white/20 p-4 relative overflow-hidden group">
-            <div className="absolute top-0 right-0 p-2 opacity-5 scale-150 rotate-12 group-hover:rotate-0 transition-transform"><Trophy size={48} /></div>
-            <div className="text-[7px] font-black uppercase text-white/30 tracking-[0.3em] mb-1">Circuit Black</div>
-            <div className="text-3xl font-black italic tracking-tighter">{colorStats.blackWins} <span className="text-[10px] non-italic text-white/20 uppercase tracking-widest ml-1">Wins</span></div>
-            <div className="h-1 w-full bg-white/10 mt-3"><div className="h-full bg-white" style={{ width: `${(colorStats.blackWins / (colorStats.blackWins + colorStats.whiteWins || 1)) * 100}%` }} /></div>
+        {event.mode !== 'STANDARD' && (
+          <div className="grid grid-cols-2 gap-4 mb-8 px-2">
+            <div className="border border-white/20 p-4 relative overflow-hidden group">
+              <div className="absolute top-0 right-0 p-2 opacity-5 scale-150 rotate-12 group-hover:rotate-0 transition-transform"><Trophy size={48} /></div>
+              <div className="text-[7px] font-black uppercase text-white/30 tracking-[0.3em] mb-1">Circuit Black</div>
+              <div className="text-3xl font-black italic tracking-tighter">{colorStats.blackWins} <span className="text-[10px] non-italic text-white/20 uppercase tracking-widest ml-1">Wins</span></div>
+              <div className="h-1 w-full bg-white/10 mt-3"><div className="h-full bg-white" style={{ width: `${(colorStats.blackWins / (colorStats.blackWins + colorStats.whiteWins || 1)) * 100}%` }} /></div>
+            </div>
+            <div className="border border-white/20 p-4 relative overflow-hidden group bg-white/5">
+              <div className="absolute top-0 right-0 p-2 opacity-10 scale-150 -rotate-12 group-hover:rotate-0 transition-transform"><Trophy size={48} /></div>
+              <div className="text-[7px] font-black uppercase text-white/30 tracking-[0.3em] mb-1">Circuit White</div>
+              <div className="text-3xl font-black italic tracking-tighter">{colorStats.whiteWins} <span className="text-[10px] non-italic text-white/20 uppercase tracking-widest ml-1">Wins</span></div>
+              <div className="h-1 w-full bg-white/10 mt-3"><div className="h-full bg-white/30" style={{ width: `${(colorStats.whiteWins / (colorStats.blackWins + colorStats.whiteWins || 1)) * 100}%` }} /></div>
+            </div>
           </div>
-          <div className="border border-white/20 p-4 relative overflow-hidden group bg-white/5">
-            <div className="absolute top-0 right-0 p-2 opacity-10 scale-150 -rotate-12 group-hover:rotate-0 transition-transform"><Trophy size={48} /></div>
-            <div className="text-[7px] font-black uppercase text-white/30 tracking-[0.3em] mb-1">Circuit White</div>
-            <div className="text-3xl font-black italic tracking-tighter">{colorStats.whiteWins} <span className="text-[10px] non-italic text-white/20 uppercase tracking-widest ml-1">Wins</span></div>
-            <div className="h-1 w-full bg-white/10 mt-3"><div className="h-full bg-white/30" style={{ width: `${(colorStats.whiteWins / (colorStats.blackWins + colorStats.whiteWins || 1)) * 100}%` }} /></div>
-          </div>
-        </div>
+        )}
 
         <div className="px-2 mb-6">
           <div className="flex items-center justify-between mb-1">
@@ -971,7 +1054,7 @@ const Dashboard: React.FC<{
           </div>
         </div>
 
-        {allRRSubmitted && !event.playoffRounds && isHost && (
+        {allRRSubmitted && !event.playoffRounds && isHost && event.teams.length >= 4 && (
           <div className="px-2 mb-12"><Button onClick={handleInitializePlayoffs} className="w-full py-6 bg-yellow-500 text-black border-yellow-500">Generate Playoff Bracket</Button></div>
         )}
 
@@ -1008,9 +1091,11 @@ const Dashboard: React.FC<{
                             ? match.playerAIds?.map(id => event.teams.find(t => t.id === id)?.player1).join(' & ')
                             : teamA?.player1}
                         </div>
-                        <span className={`text-[7px] font-black px-1.5 py-0.5 border ${teamA?.color === 'BLACK' || match.teamAId === 'BLACK' ? 'bg-white text-black border-white' : 'bg-transparent text-white border-white/20'}`}>
-                          {teamA?.color === 'BLACK' || match.teamAId === 'BLACK' ? 'BLACK' : 'WHITE'}
-                        </span>
+                        {event.mode !== 'STANDARD' && (
+                          <span className={`text-[7px] font-black px-1.5 py-0.5 border ${teamA?.color === 'BLACK' || match.teamAId === 'BLACK' ? 'bg-white text-black border-white' : 'bg-transparent text-white border-white/20'}`}>
+                            {teamA?.color === 'BLACK' || match.teamAId === 'BLACK' ? 'BLACK' : 'WHITE'}
+                          </span>
+                        )}
                         {seedA !== null && (
                           <span className="bg-white/5 border border-white/10 px-1 text-[7px] font-black text-white/40">S{seedA}</span>
                         )}
@@ -1058,9 +1143,11 @@ const Dashboard: React.FC<{
                             ? match.playerBIds?.map(id => event.teams.find(t => t.id === id)?.player1).join(' & ')
                             : teamB?.player1}
                         </div>
-                        <span className={`text-[7px] font-black px-1.5 py-0.5 border ${teamB?.color === 'BLACK' || match.teamBId === 'BLACK' ? 'bg-white text-black border-white' : 'bg-transparent text-white border-white/20'}`}>
-                          {teamB?.color === 'BLACK' || match.teamBId === 'BLACK' ? 'BLACK' : 'WHITE'}
-                        </span>
+                        {event.mode !== 'STANDARD' && (
+                          <span className={`text-[7px] font-black px-1.5 py-0.5 border ${teamB?.color === 'BLACK' || match.teamBId === 'BLACK' ? 'bg-white text-black border-white' : 'bg-transparent text-white border-white/20'}`}>
+                            {teamB?.color === 'BLACK' || match.teamBId === 'BLACK' ? 'BLACK' : 'WHITE'}
+                          </span>
+                        )}
                         {seedB !== null && (
                           <span className="bg-white/5 border border-white/10 px-1 text-[7px] font-black text-white/40">S{seedB}</span>
                         )}
@@ -1187,7 +1274,7 @@ export default function App() {
         {view === 'TEAM_SETUP' && activeEvent && <TeamSetupView event={activeEvent} onConfirm={(teams) => { 
           const rounds = activeEvent.mode === 'INDIVIDUAL_6V_6' 
             ? generate6v6Schedule(teams, activeEvent.numberOfCourts)
-            : generateSchedule(teams, activeEvent.numberOfCourts);
+            : generateSchedule(teams, activeEvent.numberOfCourts, activeEvent.mode);
           const updated = { ...activeEvent, teams, rounds }; 
           setActiveEvent(updated); 
           saveEvent(updated); 

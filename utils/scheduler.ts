@@ -1,15 +1,13 @@
 
-import { Team, Round, Match, MatchStatus, RoundStatus } from '../types';
+import { Team, Round, Match, MatchStatus, RoundStatus, EventMode } from '../types';
 
 export function generateSchedule(
   teams: Team[],
-  numberOfCourts: number
+  numberOfCourts: number,
+  mode: EventMode
 ): Round[] {
-  const blackTeams = teams.filter(t => t.color === 'BLACK').map(t => t.id);
-  const whiteTeams = teams.filter(t => t.color === 'WHITE').map(t => t.id);
-
-  // If no colors are assigned, fall back to default logic
-  if (blackTeams.length === 0 || whiteTeams.length === 0) {
+  // If STANDARD mode, run standard circle rotation round robin scheduler
+  if (mode === 'STANDARD') {
     const teamIds = teams.map(t => t.id);
     const isOdd = teamIds.length % 2 !== 0;
     if (isOdd) {
@@ -63,11 +61,16 @@ export function generateSchedule(
     return rounds;
   }
 
-  // Black vs White matching logic
+  // Otherwise, run TEAM black-vs-white scheduler
+  const blackTeams = teams.filter(t => t.color === 'BLACK').map(t => t.id);
+  const whiteTeams = teams.filter(t => t.color === 'WHITE').map(t => t.id);
+
   // Pad the smaller group with BYEs to make them equal size
   const maxLen = Math.max(blackTeams.length, whiteTeams.length);
-  while (blackTeams.length < maxLen) blackTeams.push('BYE');
-  while (whiteTeams.length < maxLen) whiteTeams.push('BYE');
+  const bPadded = [...blackTeams];
+  const wPadded = [...whiteTeams];
+  while (bPadded.length < maxLen) bPadded.push('BYE');
+  while (wPadded.length < maxLen) wPadded.push('BYE');
 
   const numRounds = maxLen;
   const rounds: Round[] = [];
@@ -76,9 +79,9 @@ export function generateSchedule(
     const roundMatches: Match[] = [];
 
     for (let i = 0; i < maxLen; i++) {
-      const teamA = blackTeams[i];
+      const teamA = bPadded[i];
       // Rotate white teams: for round r, team A[i] plays B[(i + r) % maxLen]
-      const teamB = whiteTeams[(i + r) % maxLen];
+      const teamB = wPadded[(i + r) % maxLen];
 
       if (teamA !== 'BYE' && teamB !== 'BYE') {
         roundMatches.push({
