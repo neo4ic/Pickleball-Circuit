@@ -657,8 +657,8 @@ const Dashboard: React.FC<{
       const finalsRound = event.playoffRounds.find(r => r.roundNumber === 'FINALS');
       if (finalsRound && finalsRound.status === RoundStatus.SUBMITTED) {
         const goldMatch = finalsRound.matches.find(m => m.id === 'match-f-gold');
-        if (goldMatch && goldMatch.status === MatchStatus.COMPLETE && goldMatch.scoreA !== null && goldMatch.scoreB !== null) {
-          const goldWinnerId = goldMatch.scoreA > goldMatch.scoreB ? goldMatch.teamAId : goldMatch.teamBId;
+        if (goldMatch && goldMatch.status === MatchStatus.COMPLETE && goldMatch.scoreA !== null && goldMatch.scoreB !== null && goldMatch.scoreA !== goldMatch.scoreB) {
+          const goldWinnerId = goldMatch.winnerId || (goldMatch.scoreA > goldMatch.scoreB ? goldMatch.teamAId : goldMatch.teamBId);
           const team = event.teams.find(t => t.id === goldWinnerId);
           return {
             team,
@@ -804,7 +804,7 @@ const Dashboard: React.FC<{
   };
 
   const handleWinnerSelect = (matchId: string, teamId: string) => {
-    if (!isHost || currentRound.status === RoundStatus.SUBMITTED) return;
+    if (!isHost || currentRound.status === RoundStatus.SUBMITTED || ![...currentRound.matches].some(m => m.id === matchId && (m.teamAId === teamId || m.teamBId === teamId))) return;
     const nextEvent = { ...event };
     const updateMatches = (matches: Match[]) => matches.map(m => m.id === matchId ? { ...m, winnerId: teamId } : m);
 
@@ -829,11 +829,11 @@ const Dashboard: React.FC<{
     const nextEvent = { ...event };
     const updateMatches = (matches: Match[]) => matches.map(m => {
         if (m.id !== matchId) return m;
-        if (!m.winnerId) return m;
         const updated = { ...m };
         if (team === 'A') updated.scoreA = score;
         else updated.scoreB = score;
-        updated.status = (updated.scoreA !== null && updated.scoreB !== null) ? MatchStatus.COMPLETE : MatchStatus.PENDING;
+        updated.status = (updated.scoreA !== null && updated.scoreB !== null && updated.scoreA !== updated.scoreB) ? MatchStatus.COMPLETE : MatchStatus.PENDING;
+        updated.winnerId = updated.status === MatchStatus.COMPLETE ? (updated.scoreA! > updated.scoreB! ? updated.teamAId : updated.teamBId) : undefined;
         updated.lastEditedAt = Date.now();
         return updated;
     });
@@ -853,6 +853,7 @@ const Dashboard: React.FC<{
 
   const handleSubmitScores = () => {
     if (!isHost) return;
+    if (!currentRound || currentRound.status === RoundStatus.SUBMITTED || currentRound.matches.some(m => m.status !== MatchStatus.COMPLETE || m.scoreA === null || m.scoreB === null || m.scoreA === m.scoreB || m.winnerId !== (m.scoreA > m.scoreB ? m.teamAId : m.teamBId))) return;
     const nextEvent = { ...event };
     
     if (isPlayoffRound) {
@@ -871,7 +872,7 @@ const Dashboard: React.FC<{
         const w2 = m2.winnerId;
         const l2 = m2.winnerId === m2.teamAId ? m2.teamBId : m2.teamAId;
 
-        if (w1 && w2) {
+        if (w1 && w2 && !nextPlayoffs.some(r => r.roundNumber === 'FINALS')) {
           nextPlayoffs.push({
             id: 'round-finals',
             roundNumber: 'FINALS',
@@ -1123,7 +1124,7 @@ const Dashboard: React.FC<{
                         type="text" inputMode="numeric" placeholder="-"
                         value={match.scoreA ?? ''} 
                         onChange={e => handleScoreChange(match.id, 'A', e.target.value)} 
-                        disabled={!isHost || currentRound.status === RoundStatus.SUBMITTED || !match.winnerId} 
+                        disabled={!isHost || currentRound.status === RoundStatus.SUBMITTED} 
                         className={`score-input ${isWinnerA ? 'border-green-500 text-green-500' : 'opacity-40'}`} 
                       />
                     </div>
@@ -1175,7 +1176,7 @@ const Dashboard: React.FC<{
                         type="text" inputMode="numeric" placeholder="-"
                         value={match.scoreB ?? ''} 
                         onChange={e => handleScoreChange(match.id, 'B', e.target.value)} 
-                        disabled={!isHost || currentRound.status === RoundStatus.SUBMITTED || !match.winnerId} 
+                        disabled={!isHost || currentRound.status === RoundStatus.SUBMITTED} 
                         className={`score-input ${isWinnerB ? 'border-green-500 text-green-500' : 'opacity-40'}`} 
                       />
                     </div>
