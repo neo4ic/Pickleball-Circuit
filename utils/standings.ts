@@ -181,7 +181,7 @@ export function computePlayoffStandings(event: Event, rrStandings: StandingRow[]
     const goldMatch = finalsRound.matches.find(m => m.id === 'match-f-gold');
     const bronzeMatch = finalsRound.matches.find(m => m.id === 'match-f-bronze');
 
-    if (goldMatch && goldMatch.status === MatchStatus.COMPLETE && goldMatch.scoreA !== null && goldMatch.scoreB !== null) {
+    if (goldMatch && goldMatch.status === MatchStatus.COMPLETE && goldMatch.scoreA !== null && goldMatch.scoreB !== null && goldMatch.scoreA !== goldMatch.scoreB) {
       if (goldMatch.scoreA > goldMatch.scoreB) {
         goldWinnerId = goldMatch.teamAId;
         goldLoserId = goldMatch.teamBId;
@@ -191,7 +191,7 @@ export function computePlayoffStandings(event: Event, rrStandings: StandingRow[]
       }
     }
 
-    if (bronzeMatch && bronzeMatch.status === MatchStatus.COMPLETE && bronzeMatch.scoreA !== null && bronzeMatch.scoreB !== null) {
+    if (bronzeMatch && bronzeMatch.status === MatchStatus.COMPLETE && bronzeMatch.scoreA !== null && bronzeMatch.scoreB !== null && bronzeMatch.scoreA !== bronzeMatch.scoreB) {
       if (bronzeMatch.scoreA > bronzeMatch.scoreB) {
         bronzeWinnerId = bronzeMatch.teamAId;
         bronzeLoserId = bronzeMatch.teamBId;

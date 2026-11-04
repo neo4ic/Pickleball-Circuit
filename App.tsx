@@ -657,8 +657,8 @@ const Dashboard: React.FC<{
       const finalsRound = event.playoffRounds.find(r => r.roundNumber === 'FINALS');
       if (finalsRound && finalsRound.status === RoundStatus.SUBMITTED) {
         const goldMatch = finalsRound.matches.find(m => m.id === 'match-f-gold');
-        if (goldMatch && goldMatch.status === MatchStatus.COMPLETE && goldMatch.scoreA !== null && goldMatch.scoreB !== null) {
-          const goldWinnerId = goldMatch.scoreA > goldMatch.scoreB ? goldMatch.teamAId : goldMatch.teamBId;
+        if (goldMatch && goldMatch.status === MatchStatus.COMPLETE && goldMatch.scoreA !== null && goldMatch.scoreB !== null && goldMatch.scoreA !== goldMatch.scoreB) {
+          const goldWinnerId = goldMatch.winnerId || (goldMatch.scoreA > goldMatch.scoreB ? goldMatch.teamAId : goldMatch.teamBId);
           const team = event.teams.find(t => t.id === goldWinnerId);
           return {
             team,
@@ -804,7 +804,7 @@ const Dashboard: React.FC<{
   };
 
   const handleWinnerSelect = (matchId: string, teamId: string) => {
-    if (!isHost || currentRound.status === RoundStatus.SUBMITTED) return;
+    if (!isHost || currentRound.status === RoundStatus.SUBMITTED || ![...currentRound.matches].some(m => m.id === matchId && (m.teamAId === teamId || m.teamBId === teamId))) return;
     const nextEvent = { ...event };
     const updateMatches = (matches: Match[]) => matches.map(m => m.id === matchId ? { ...m, winnerId: teamId } : m);
 
@@ -829,11 +829,11 @@ const Dashboard: React.FC<{
     const nextEvent = { ...event };
     const updateMatches = (matches: Match[]) => matches.map(m => {
         if (m.id !== matchId) return m;
-        if (!m.winnerId) return m;
         const updated = { ...m };
         if (team === 'A') updated.scoreA = score;
         else updated.scoreB = score;
-        updated.status = (updated.scoreA !== null && updated.scoreB !== null) ? MatchStatus.COMPLETE : MatchStatus.PENDING;
+        updated.status = (updated.scoreA !== null && updated.scoreB !== null && updated.scoreA !== updated.scoreB) ? MatchStatus.COMPLETE : MatchStatus.PENDING;
+        updated.winnerId = updated.status === MatchStatus.COMPLETE ? (updated.scoreA! > updated.scoreB! ? updated.teamAId : updated.teamBId) : undefined;
         updated.lastEditedAt = Date.now();
         return updated;
     });
@@ -853,6 +853,7 @@ const Dashboard: React.FC<{
 
   const handleSubmitScores = () => {
     if (!isHost) return;
+    if (!currentRound || currentRound.status === RoundStatus.SUBMITTED || currentRound.matches.some(m => m.status !== MatchStatus.COMPLETE || m.scoreA === null || m.scoreB === null || m.scoreA === m.scoreB || m.winnerId !== (m.scoreA > m.scoreB ? m.teamAId : m.teamBId))) return;
     const nextEvent = { ...event };
     
     if (isPlayoffRound) {
@@ -871,7 +872,7 @@ const Dashboard: React.FC<{
         const w2 = m2.winnerId;
         const l2 = m2.winnerId === m2.teamAId ? m2.teamBId : m2.teamAId;
 
-        if (w1 && w2) {
+        if (w1 && w2 && !nextPlayoffs.some(r => r.roundNumber === 'FINALS')) {
           nextPlayoffs.push({
             id: 'round-finals',
             roundNumber: 'FINALS',
@@ -930,7 +931,7 @@ const Dashboard: React.FC<{
 
   if (showStandings) {
     return (
-      <div className="max-w-md mx-auto p-6 min-h-[100dvh] flex flex-col bg-black overflow-hidden">
+      <div className="max-w-md mx-auto px-4 py-5 min-h-[100dvh] flex flex-col bg-black overflow-hidden">
         <header className="flex items-center justify-between mb-8 mt-4 shrink-0">
           <h1 className="text-2xl font-black italic tracking-tighter uppercase">RANKINGS</h1>
           <div className="flex gap-2">
@@ -975,7 +976,7 @@ const Dashboard: React.FC<{
     <div className="flex flex-col h-[100dvh] w-full overflow-hidden page-transition bg-black">
       {showQR && <QRModal url={generateEventShareUrl(event)} onClose={() => setShowQR(false)} />}
       
-      <header className="px-6 py-3 border-b border-[#a5a5a5] flex items-center justify-between bg-black z-[100] shrink-0">
+      <header className="px-4 py-3 border-b border-[#a5a5a5] flex items-center justify-between bg-black z-[100] shrink-0">
         <div className="flex items-center gap-4">
           <button onClick={onGoHome} className="p-2 border border-[#a5a5a5] active:bg-white active:text-black"><ChevronLeft size={16} /></button>
           <div className="flex flex-col"><h1 className="text-[10px] font-black italic tracking-tighter uppercase">{event.name}</h1></div>
@@ -1123,7 +1124,7 @@ const Dashboard: React.FC<{
                         type="text" inputMode="numeric" placeholder="-"
                         value={match.scoreA ?? ''} 
                         onChange={e => handleScoreChange(match.id, 'A', e.target.value)} 
-                        disabled={!isHost || currentRound.status === RoundStatus.SUBMITTED || !match.winnerId} 
+                        disabled={!isHost || currentRound.status === RoundStatus.SUBMITTED} 
                         className={`score-input ${isWinnerA ? 'border-green-500 text-green-500' : 'opacity-40'}`} 
                       />
                     </div>
@@ -1175,7 +1176,7 @@ const Dashboard: React.FC<{
                         type="text" inputMode="numeric" placeholder="-"
                         value={match.scoreB ?? ''} 
                         onChange={e => handleScoreChange(match.id, 'B', e.target.value)} 
-                        disabled={!isHost || currentRound.status === RoundStatus.SUBMITTED || !match.winnerId} 
+                        disabled={!isHost || currentRound.status === RoundStatus.SUBMITTED} 
                         className={`score-input ${isWinnerB ? 'border-green-500 text-green-500' : 'opacity-40'}`} 
                       />
                     </div>
@@ -1207,11 +1208,11 @@ const Dashboard: React.FC<{
 
       <footer className="fixed bottom-0 left-0 right-0 bg-black border-t border-[#a5a5a5] z-[200] pb-safe shrink-0">
         {isHost && currentRound?.status !== RoundStatus.SUBMITTED && (
-           <button onClick={handleSubmitScores} disabled={currentRound?.status === RoundStatus.IN_PROGRESS} className="w-full py-5 text-[9px] font-black uppercase tracking-[0.4em] bg-white text-black active:invert disabled:opacity-50">Submit Scores</button>
+           <button onClick={handleSubmitScores} disabled={!currentRound || currentRound.status === RoundStatus.IN_PROGRESS || currentRound.matches.some(m => m.status !== MatchStatus.COMPLETE || m.scoreA === null || m.scoreB === null || m.scoreA === m.scoreB || m.winnerId !== (m.scoreA > m.scoreB ? m.teamAId : m.teamBId))} className="w-full min-h-[52px] py-4 text-[12px] font-black uppercase tracking-[0.1em] bg-white text-black active:invert disabled:opacity-50">{currentRound?.roundNumber === 'SF' ? 'Complete Semifinals & Create Finals' : currentRound?.roundNumber === 'FINALS' ? 'Finalize Championship Results' : 'Submit Round Scores'}</button>
         )}
-        <div ref={roundScrollRef} className="px-6 py-4 flex gap-2 overflow-x-auto no-scrollbar scroll-smooth snap-x snap-mandatory bg-black">
+        <div ref={roundScrollRef} className="px-4 py-3 flex gap-2 overflow-x-auto no-scrollbar scroll-smooth snap-x snap-mandatory bg-black">
           {allRounds.map((r, idx) => (
-            <button key={r.id} onClick={() => setActiveRoundIdx(idx)} className={`flex-shrink-0 w-12 h-12 flex items-center justify-center transition-all border border-[#a5a5a5] snap-center relative ${activeRoundIdx === idx ? 'bg-white text-black border-white' : (idx >= event.rounds.length ? 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20' : 'bg-transparent text-white/30 border-[#a5a5a5]/20')}`}>
+            <button key={r.id} onClick={() => setActiveRoundIdx(idx)} aria-label={`View round ${r.roundNumber}`} aria-current={activeRoundIdx === idx ? 'step' : undefined} className={`flex-shrink-0 min-w-[52px] h-[52px] flex items-center justify-center transition-all border border-[#a5a5a5] snap-center relative ${activeRoundIdx === idx ? 'bg-white text-black border-white' : (idx >= event.rounds.length ? 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20' : 'bg-transparent text-white/30 border-[#a5a5a5]/20')}`}>
               <span className="text-[11px] font-black italic tabular-nums">{r.roundNumber}</span>
               {r.status === RoundStatus.SUBMITTED && <div className="absolute top-0 right-0 bg-white text-black p-0.5"><Check size={6} strokeWidth={5} /></div>}
             </button>
